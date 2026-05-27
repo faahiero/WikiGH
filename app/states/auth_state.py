@@ -41,6 +41,7 @@ def _hash_password(password: str, salt: str) -> str:
 
 def create_user_db(name: str, email: str, password: str) -> tuple[bool, str]:
     try:
+        init_auth_db()
         conn = sqlite3.connect(AUTH_DB_PATH)
         cursor = conn.cursor()
         cursor.execute(
@@ -67,6 +68,7 @@ def create_user_db(name: str, email: str, password: str) -> tuple[bool, str]:
 
 def verify_user_db(email: str, password: str) -> tuple[bool, dict | str]:
     try:
+        init_auth_db()
         conn = sqlite3.connect(AUTH_DB_PATH)
         conn.row_factory = sqlite3.Row
         cursor = conn.cursor()
@@ -93,6 +95,7 @@ def verify_user_db(email: str, password: str) -> tuple[bool, dict | str]:
 
 def count_users_db() -> int:
     try:
+        init_auth_db()
         conn = sqlite3.connect(AUTH_DB_PATH)
         cursor = conn.cursor()
         cursor.execute("SELECT COUNT(*) FROM users")

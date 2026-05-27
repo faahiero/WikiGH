@@ -687,7 +687,7 @@ def welcome_banner() -> rx.Component:
         rx.el.div(
             rx.el.div(
                 rx.el.span(
-                    "Painel principal",
+                    "Centro de comando",
                     class_name="text-[10px] font-bold tracking-widest text-blue-100 uppercase",
                 ),
                 rx.el.h2(
@@ -695,19 +695,299 @@ def welcome_banner() -> rx.Component:
                     class_name="text-2xl font-bold text-white mt-1 tracking-tight",
                 ),
                 rx.el.p(
-                    "Acompanhe sua composição biográfica, ações rápidas e indicadores principais.",
+                    f"{ResearchState.total_people} pessoa(s) compostas • {ResearchState.total_locations} locais • Período {ResearchState.timeline_span}",
                     class_name="text-sm text-blue-100 mt-1",
                 ),
             ),
-            rx.el.button(
-                rx.icon("search", class_name="h-4 w-4"),
-                rx.el.span("Nova pesquisa"),
-                on_click=lambda: ResearchState.set_active_view("research"),
-                class_name="inline-flex items-center gap-2 text-sm font-bold text-blue-700 bg-white hover:bg-blue-50 px-4 py-2.5 rounded-lg shadow-sm transition-all hover:scale-105 shrink-0",
+            rx.el.div(
+                rx.el.button(
+                    rx.icon("search", class_name="h-4 w-4"),
+                    rx.el.span("Nova pesquisa"),
+                    on_click=lambda: ResearchState.set_active_view("research"),
+                    class_name="inline-flex items-center gap-2 text-sm font-bold text-blue-700 bg-white hover:bg-blue-50 px-4 py-2.5 rounded-lg shadow-sm transition-all hover:scale-105 shrink-0",
+                ),
+                rx.el.button(
+                    rx.icon("download", class_name="h-4 w-4"),
+                    rx.el.span("Exportar"),
+                    on_click=ResearchState.export_csv_with_feedback,
+                    class_name="inline-flex items-center gap-2 text-sm font-semibold text-white bg-blue-500/40 hover:bg-blue-500/60 border border-white/20 px-4 py-2.5 rounded-lg transition-all shrink-0",
+                ),
+                class_name="flex items-center gap-2 flex-wrap",
             ),
             class_name="flex items-start justify-between gap-4 flex-wrap",
         ),
         class_name="bg-gradient-to-r from-blue-600 to-blue-700 rounded-xl p-6 mb-6 shadow-sm",
+    )
+
+
+def next_action_panel() -> rx.Component:
+    return rx.el.div(
+        rx.el.div(
+            rx.el.div(
+                rx.icon("compass", class_name="h-4 w-4 text-blue-600"),
+                rx.el.h3(
+                    "Próxima ação sugerida",
+                    class_name=rx.cond(
+                        ResearchState.dark_mode,
+                        "text-base font-bold text-gray-100",
+                        "text-base font-bold text-gray-900",
+                    ),
+                ),
+                class_name="flex items-center gap-2",
+            ),
+            class_name="mb-3",
+        ),
+        rx.cond(
+            ResearchState.total_people == 0,
+            rx.el.button(
+                rx.el.div(
+                    rx.icon("search", class_name="h-5 w-5 text-blue-600"),
+                    class_name="h-10 w-10 rounded-lg bg-blue-50 flex items-center justify-center shrink-0",
+                ),
+                rx.el.div(
+                    rx.el.p(
+                        "Faça sua primeira pesquisa",
+                        class_name=rx.cond(
+                            ResearchState.dark_mode,
+                            "text-sm font-bold text-gray-100 text-left",
+                            "text-sm font-bold text-gray-900 text-left",
+                        ),
+                    ),
+                    rx.el.p(
+                        "Procure uma personalidade na Wikipédia para iniciar sua composição.",
+                        class_name=rx.cond(
+                            ResearchState.dark_mode,
+                            "text-xs text-gray-400 text-left",
+                            "text-xs text-gray-600 text-left",
+                        ),
+                    ),
+                    class_name="flex-1 min-w-0",
+                ),
+                rx.icon(
+                    "arrow-right", class_name="h-4 w-4 text-blue-600 shrink-0"
+                ),
+                on_click=lambda: ResearchState.set_active_view("research"),
+                class_name=rx.cond(
+                    ResearchState.dark_mode,
+                    "flex items-center gap-3 p-4 rounded-xl border border-blue-900 bg-blue-950/30 hover:bg-blue-950/50 transition-colors w-full",
+                    "flex items-center gap-3 p-4 rounded-xl border border-blue-200 bg-blue-50/60 hover:bg-blue-100/60 transition-colors w-full",
+                ),
+            ),
+            rx.cond(
+                ResearchState.avg_completeness < 80,
+                rx.el.button(
+                    rx.el.div(
+                        rx.icon(
+                            "circle-check", class_name="h-5 w-5 text-amber-600"
+                        ),
+                        class_name="h-10 w-10 rounded-lg bg-amber-50 flex items-center justify-center shrink-0",
+                    ),
+                    rx.el.div(
+                        rx.el.p(
+                            "Revise dados incompletos",
+                            class_name=rx.cond(
+                                ResearchState.dark_mode,
+                                "text-sm font-bold text-gray-100 text-left",
+                                "text-sm font-bold text-gray-900 text-left",
+                            ),
+                        ),
+                        rx.el.p(
+                            f"Completude média {ResearchState.avg_completeness}% — analise campos ausentes nas Análises.",
+                            class_name=rx.cond(
+                                ResearchState.dark_mode,
+                                "text-xs text-gray-400 text-left",
+                                "text-xs text-gray-600 text-left",
+                            ),
+                        ),
+                        class_name="flex-1 min-w-0",
+                    ),
+                    rx.icon(
+                        "arrow-right",
+                        class_name="h-4 w-4 text-amber-600 shrink-0",
+                    ),
+                    on_click=lambda: ResearchState.set_active_view("analytics"),
+                    class_name=rx.cond(
+                        ResearchState.dark_mode,
+                        "flex items-center gap-3 p-4 rounded-xl border border-amber-900 bg-amber-950/30 hover:bg-amber-950/50 transition-colors w-full",
+                        "flex items-center gap-3 p-4 rounded-xl border border-amber-200 bg-amber-50/60 hover:bg-amber-100/60 transition-colors w-full",
+                    ),
+                ),
+                rx.el.button(
+                    rx.el.div(
+                        rx.icon("map", class_name="h-5 w-5 text-emerald-600"),
+                        class_name="h-10 w-10 rounded-lg bg-emerald-50 flex items-center justify-center shrink-0",
+                    ),
+                    rx.el.div(
+                        rx.el.p(
+                            "Explore o mapa geográfico",
+                            class_name=rx.cond(
+                                ResearchState.dark_mode,
+                                "text-sm font-bold text-gray-100 text-left",
+                                "text-sm font-bold text-gray-900 text-left",
+                            ),
+                        ),
+                        rx.el.p(
+                            f"{ResearchState.total_with_coordinates} registro(s) geocodificado(s) prontos para visualização.",
+                            class_name=rx.cond(
+                                ResearchState.dark_mode,
+                                "text-xs text-gray-400 text-left",
+                                "text-xs text-gray-600 text-left",
+                            ),
+                        ),
+                        class_name="flex-1 min-w-0",
+                    ),
+                    rx.icon(
+                        "arrow-right",
+                        class_name="h-4 w-4 text-emerald-600 shrink-0",
+                    ),
+                    on_click=lambda: ResearchState.set_active_view("map"),
+                    class_name=rx.cond(
+                        ResearchState.dark_mode,
+                        "flex items-center gap-3 p-4 rounded-xl border border-emerald-900 bg-emerald-950/30 hover:bg-emerald-950/50 transition-colors w-full",
+                        "flex items-center gap-3 p-4 rounded-xl border border-emerald-200 bg-emerald-50/60 hover:bg-emerald-100/60 transition-colors w-full",
+                    ),
+                ),
+            ),
+        ),
+        class_name=rx.cond(
+            ResearchState.dark_mode,
+            "bg-gray-900 border border-gray-800 rounded-xl p-5",
+            "bg-white border border-gray-200 rounded-xl p-5",
+        ),
+    )
+
+
+def progress_status_block() -> rx.Component:
+    return rx.el.div(
+        rx.el.div(
+            rx.el.div(
+                rx.icon("gauge", class_name="h-4 w-4 text-blue-600"),
+                rx.el.h3(
+                    "Status da composição",
+                    class_name=rx.cond(
+                        ResearchState.dark_mode,
+                        "text-base font-bold text-gray-100",
+                        "text-base font-bold text-gray-900",
+                    ),
+                ),
+                class_name="flex items-center gap-2",
+            ),
+            class_name="mb-4",
+        ),
+        rx.el.div(
+            rx.el.div(
+                rx.el.div(
+                    rx.el.span(
+                        "Completude",
+                        class_name=rx.cond(
+                            ResearchState.dark_mode,
+                            "text-xs font-medium text-gray-300",
+                            "text-xs font-medium text-gray-700",
+                        ),
+                    ),
+                    rx.el.span(
+                        f"{ResearchState.avg_completeness}%",
+                        class_name=rx.cond(
+                            ResearchState.dark_mode,
+                            "text-xs font-bold text-blue-400 font-mono",
+                            "text-xs font-bold text-blue-600 font-mono",
+                        ),
+                    ),
+                    class_name="flex items-center justify-between mb-1.5",
+                ),
+                rx.el.div(
+                    rx.el.div(
+                        class_name="h-2 rounded-full bg-blue-600 transition-all duration-500",
+                        style={"width": f"{ResearchState.avg_completeness}%"},
+                    ),
+                    class_name=rx.cond(
+                        ResearchState.dark_mode,
+                        "h-2 w-full rounded-full bg-gray-800 overflow-hidden",
+                        "h-2 w-full rounded-full bg-gray-100 overflow-hidden",
+                    ),
+                ),
+                class_name="mb-3",
+            ),
+            rx.el.div(
+                rx.el.div(
+                    rx.el.span(
+                        "Geocodificação",
+                        class_name=rx.cond(
+                            ResearchState.dark_mode,
+                            "text-xs font-medium text-gray-300",
+                            "text-xs font-medium text-gray-700",
+                        ),
+                    ),
+                    rx.el.span(
+                        f"{ResearchState.geocoding_coverage}%",
+                        class_name=rx.cond(
+                            ResearchState.dark_mode,
+                            "text-xs font-bold text-emerald-400 font-mono",
+                            "text-xs font-bold text-emerald-600 font-mono",
+                        ),
+                    ),
+                    class_name="flex items-center justify-between mb-1.5",
+                ),
+                rx.el.div(
+                    rx.el.div(
+                        class_name="h-2 rounded-full bg-emerald-600 transition-all duration-500",
+                        style={"width": f"{ResearchState.geocoding_coverage}%"},
+                    ),
+                    class_name=rx.cond(
+                        ResearchState.dark_mode,
+                        "h-2 w-full rounded-full bg-gray-800 overflow-hidden",
+                        "h-2 w-full rounded-full bg-gray-100 overflow-hidden",
+                    ),
+                ),
+                class_name="mb-3",
+            ),
+            rx.el.div(
+                rx.el.div(
+                    rx.el.p(
+                        "Mais longevo(a)",
+                        class_name="text-[10px] font-semibold uppercase text-gray-400",
+                    ),
+                    rx.el.p(
+                        ResearchState.oldest_person_name,
+                        class_name=rx.cond(
+                            ResearchState.dark_mode,
+                            "text-xs font-bold text-gray-100 truncate",
+                            "text-xs font-bold text-gray-900 truncate",
+                        ),
+                    ),
+                    class_name=rx.cond(
+                        ResearchState.dark_mode,
+                        "p-2.5 rounded-lg border border-gray-800",
+                        "p-2.5 rounded-lg border border-gray-100 bg-gray-50",
+                    ),
+                ),
+                rx.el.div(
+                    rx.el.p(
+                        "Pico histórico",
+                        class_name="text-[10px] font-semibold uppercase text-gray-400",
+                    ),
+                    rx.el.p(
+                        ResearchState.peak_century,
+                        class_name=rx.cond(
+                            ResearchState.dark_mode,
+                            "text-xs font-bold text-gray-100 truncate",
+                            "text-xs font-bold text-gray-900 truncate",
+                        ),
+                    ),
+                    class_name=rx.cond(
+                        ResearchState.dark_mode,
+                        "p-2.5 rounded-lg border border-gray-800",
+                        "p-2.5 rounded-lg border border-gray-100 bg-gray-50",
+                    ),
+                ),
+                class_name="grid grid-cols-2 gap-2",
+            ),
+        ),
+        class_name=rx.cond(
+            ResearchState.dark_mode,
+            "bg-gray-900 border border-gray-800 rounded-xl p-5",
+            "bg-white border border-gray-200 rounded-xl p-5",
+        ),
     )
 
 
@@ -750,6 +1030,11 @@ def dashboard_view() -> rx.Component:
             class_name="grid grid-cols-2 lg:grid-cols-4 gap-4 mb-6",
         ),
         rx.el.div(storage_status_card(), class_name="mb-6"),
+        rx.el.div(
+            next_action_panel(),
+            progress_status_block(),
+            class_name="grid grid-cols-1 lg:grid-cols-2 gap-4 mb-6",
+        ),
         rx.el.div(
             rx.el.div(
                 quick_actions_panel(),

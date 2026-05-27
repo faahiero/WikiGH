@@ -750,6 +750,256 @@ class ResearchState(rx.State):
         return self.nationality_distribution[:5]
 
     @rx.var
+    def lifespan_distribution(self) -> list[DistRow]:
+        buckets = {"<40": 0, "40-59": 0, "60-79": 0, "80+": 0}
+        for p in self.people:
+            if (
+                p["birth_date"]
+                and p["birth_date"] != "—"
+                and p["death_date"]
+                and p["death_date"] != "—"
+            ):
+                try:
+                    by = int(p["birth_date"][:4])
+                    dy = int(p["death_date"][:4])
+                    age = dy - by
+                    if age < 0:
+                        continue
+                    if age < 40:
+                        buckets["<40"] += 1
+                    elif age < 60:
+                        buckets["40-59"] += 1
+                    elif age < 80:
+                        buckets["60-79"] += 1
+                    else:
+                        buckets["80+"] += 1
+                except ValueError:
+                    pass
+        return [{"label": k, "count": v} for k, v in buckets.items()]
+
+    @rx.var
+    def average_lifespan(self) -> int:
+        ages: list[int] = []
+        for p in self.people:
+            if (
+                p["birth_date"]
+                and p["birth_date"] != "—"
+                and p["death_date"]
+                and p["death_date"] != "—"
+            ):
+                try:
+                    by = int(p["birth_date"][:4])
+                    dy = int(p["death_date"][:4])
+                    age = dy - by
+                    if age >= 0:
+                        ages.append(age)
+                except ValueError:
+                    pass
+        if not ages:
+            return 0
+        return int(round(sum(ages) / len(ages)))
+
+    @rx.var
+    def oldest_person_name(self) -> str:
+        best = -1
+        name = "—"
+        for p in self.people:
+            if (
+                p["birth_date"]
+                and p["birth_date"] != "—"
+                and p["death_date"]
+                and p["death_date"] != "—"
+            ):
+                try:
+                    age = int(p["death_date"][:4]) - int(p["birth_date"][:4])
+                    if age > best:
+                        best = age
+                        name = p["name"]
+                except ValueError:
+                    pass
+        return name
+
+    @rx.var
+    def youngest_person_name(self) -> str:
+        best = 10**6
+        name = "—"
+        for p in self.people:
+            if (
+                p["birth_date"]
+                and p["birth_date"] != "—"
+                and p["death_date"]
+                and p["death_date"] != "—"
+            ):
+                try:
+                    age = int(p["death_date"][:4]) - int(p["birth_date"][:4])
+                    if 0 <= age < best:
+                        best = age
+                        name = p["name"]
+                except ValueError:
+                    pass
+        return name
+
+    @rx.var
+    def total_movers(self) -> int:
+        count = 0
+        for p in self.people:
+            bp = (p["birth_place"] or "").strip()
+            dp = (p["death_place"] or "").strip()
+            if bp and dp and bp != "—" and dp != "—" and bp != dp:
+                count += 1
+        return count
+
+    @rx.var
+    def total_stayers(self) -> int:
+        count = 0
+        for p in self.people:
+            bp = (p["birth_place"] or "").strip()
+            dp = (p["death_place"] or "").strip()
+            if bp and dp and bp != "—" and dp != "—" and bp == dp:
+                count += 1
+        return count
+
+    @rx.var
+    def mobility_distribution(self) -> list[DistRow]:
+        return [
+            {"label": "Mudaram de local", "count": self.total_movers},
+            {"label": "Mesmo local", "count": self.total_stayers},
+        ]
+
+    @rx.var
+    def missing_fields_distribution(self) -> list[DistRow]:
+        counts = {
+            "Nacionalidade": 0,
+            "Nascimento (data)": 0,
+            "Falecimento (data)": 0,
+            "Nascimento (local)": 0,
+            "Falecimento (local)": 0,
+        }
+        for p in self.people:
+            if not p["nationality"] or p["nationality"] == "—":
+                counts["Nacionalidade"] += 1
+            if not p["birth_date"] or p["birth_date"] == "—":
+                counts["Nascimento (data)"] += 1
+            if not p["death_date"] or p["death_date"] == "—":
+                counts["Falecimento (data)"] += 1
+            if not p["birth_place"] or p["birth_place"] == "—":
+                counts["Nascimento (local)"] += 1
+            if not p["death_place"] or p["death_place"] == "—":
+                counts["Falecimento (local)"] += 1
+        return [{"label": k, "count": v} for k, v in counts.items()]
+
+    @rx.var
+    def top_birth_places(self) -> list[DistRow]:
+        counts: dict[str, int] = {}
+        for p in self.people:
+            place = (p["birth_place"] or "").strip()
+            if place and place != "—":
+                counts[place] = counts.get(place, 0) + 1
+        items = sorted(counts.items(), key=lambda kv: kv[1], reverse=True)[:8]
+        return [{"label": k, "count": v} for k, v in items]
+
+    @rx.var
+    def top_death_places(self) -> list[DistRow]:
+        counts: dict[str, int] = {}
+        for p in self.people:
+            place = (p["death_place"] or "").strip()
+            if place and place != "—":
+                counts[place] = counts.get(place, 0) + 1
+        items = sorted(counts.items(), key=lambda kv: kv[1], reverse=True)[:8]
+        return [{"label": k, "count": v} for k, v in items]
+
+    @rx.var
+    def total_unique_nationalities(self) -> int:
+        s = set()
+        for p in self.people:
+            n = (p["nationality"] or "").strip()
+            if n and n != "—":
+                s.add(n)
+        return len(s)
+
+    @rx.var
+    def peak_century(self) -> str:
+        dist = self.century_distribution
+        if not dist:
+            return "—"
+        best = max(dist, key=lambda d: d["count"])
+        return best["label"]
+
+    @rx.var
+    def peak_century_count(self) -> int:
+        dist = self.century_distribution
+        if not dist:
+            return 0
+        return max(d["count"] for d in dist)
+
+    @rx.var
+    def earliest_birth_year(self) -> int:
+        years = []
+        for p in self.people:
+            if p["birth_date"] and p["birth_date"] != "—":
+                try:
+                    years.append(int(p["birth_date"][:4]))
+                except ValueError:
+                    pass
+        return min(years) if years else 0
+
+    @rx.var
+    def latest_death_year(self) -> int:
+        years = []
+        for p in self.people:
+            if p["death_date"] and p["death_date"] != "—":
+                try:
+                    years.append(int(p["death_date"][:4]))
+                except ValueError:
+                    pass
+        return max(years) if years else 0
+
+    @rx.var
+    def total_with_coordinates(self) -> int:
+        count = 0
+        for p in self.people:
+            if (p["birth_lat"] != 0.0 or p["birth_lng"] != 0.0) or (
+                p["death_lat"] != 0.0 or p["death_lng"] != 0.0
+            ):
+                count += 1
+        return count
+
+    @rx.var
+    def total_fully_geocoded(self) -> int:
+        count = 0
+        for p in self.people:
+            has_birth = p["birth_lat"] != 0.0 or p["birth_lng"] != 0.0
+            has_death = p["death_lat"] != 0.0 or p["death_lng"] != 0.0
+            if has_birth and has_death:
+                count += 1
+        return count
+
+    @rx.var
+    def geocoding_coverage(self) -> int:
+        if not self.people:
+            return 0
+        return int(round(self.total_with_coordinates * 100 / len(self.people)))
+
+    @rx.var
+    def decade_distribution(self) -> list[DistRow]:
+        counts: dict[int, int] = {}
+        for p in self.people:
+            if p["birth_date"] and p["birth_date"] != "—":
+                try:
+                    y = int(p["birth_date"][:4])
+                    decade = (y // 10) * 10
+                    counts[decade] = counts.get(decade, 0) + 1
+                except ValueError:
+                    pass
+        items = sorted(counts.items())
+        return [{"label": f"{d}s", "count": v} for d, v in items]
+
+    @rx.var
+    def gender_balance_unknown(self) -> int:
+        # Wikidata gender not extracted; report unknown count
+        return len(self.people)
+
+    @rx.var
     def filtered_people(self) -> list[PersonRecord]:
         q = self.table_search.strip().lower()
         if not q:

@@ -2,6 +2,62 @@ import reflex as rx
 from app.states.research_state import ResearchState
 
 
+def workbench_header() -> rx.Component:
+    return rx.el.div(
+        rx.el.div(
+            rx.el.div(
+                rx.icon("book-open-text", class_name="h-4 w-4 text-white"),
+                class_name="h-9 w-9 rounded-lg bg-gradient-to-br from-blue-600 to-blue-700 flex items-center justify-center shrink-0",
+            ),
+            rx.el.div(
+                rx.el.span(
+                    "Workbench Editorial",
+                    class_name=rx.cond(
+                        ResearchState.dark_mode,
+                        "text-[10px] font-bold tracking-widest text-blue-400 uppercase",
+                        "text-[10px] font-bold tracking-widest text-blue-600 uppercase",
+                    ),
+                ),
+                rx.el.h2(
+                    "Curadoria de biografias",
+                    class_name=rx.cond(
+                        ResearchState.dark_mode,
+                        "text-lg font-bold text-gray-100 leading-tight",
+                        "text-lg font-bold text-gray-900 leading-tight",
+                    ),
+                ),
+            ),
+            class_name="flex items-center gap-3",
+        ),
+        rx.el.div(
+            rx.el.span(
+                rx.el.span(
+                    class_name="h-1.5 w-1.5 rounded-full bg-emerald-500 animate-pulse"
+                ),
+                rx.el.span(
+                    "pt.wikipedia.org",
+                    class_name=rx.cond(
+                        ResearchState.dark_mode,
+                        "text-xs font-medium text-gray-200",
+                        "text-xs font-medium text-gray-700",
+                    ),
+                ),
+                class_name=rx.cond(
+                    ResearchState.dark_mode,
+                    "inline-flex items-center gap-1.5 px-2.5 py-1 rounded-full bg-gray-800 border border-gray-700",
+                    "inline-flex items-center gap-1.5 px-2.5 py-1 rounded-full bg-white border border-gray-200",
+                ),
+            ),
+            class_name="flex items-center gap-2",
+        ),
+        class_name=rx.cond(
+            ResearchState.dark_mode,
+            "flex items-center justify-between gap-4 pb-4 mb-5 border-b border-dashed border-gray-800",
+            "flex items-center justify-between gap-4 pb-4 mb-5 border-b border-dashed border-gray-200",
+        ),
+    )
+
+
 def search_result_item(item) -> rx.Component:
     return rx.el.button(
         rx.el.div(
@@ -327,49 +383,41 @@ def preview_panel() -> rx.Component:
     )
 
 
-def search_panel() -> rx.Component:
+def guided_chips_bar() -> rx.Component:
     return rx.el.div(
         rx.el.div(
-            rx.el.div(
-                rx.el.h2(
-                    "Buscar artigo na Wikipédia",
-                    class_name=rx.cond(
-                        ResearchState.dark_mode,
-                        "text-lg font-bold text-gray-100",
-                        "text-lg font-bold text-gray-900",
-                    ),
-                ),
-                rx.el.p(
-                    "Digite um termo em português para iniciar uma nova pesquisa biográfica.",
-                    class_name=rx.cond(
-                        ResearchState.dark_mode,
-                        "text-sm text-gray-400 mt-0.5",
-                        "text-sm text-gray-500 mt-0.5",
-                    ),
+            rx.icon("sparkles", class_name="h-3.5 w-3.5 text-blue-500"),
+            rx.el.span(
+                "Sugestões guiadas",
+                class_name=rx.cond(
+                    ResearchState.dark_mode,
+                    "text-[10px] font-bold uppercase tracking-wider text-blue-400",
+                    "text-[10px] font-bold uppercase tracking-wider text-blue-600",
                 ),
             ),
-            rx.el.div(
-                rx.el.span(
-                    rx.el.span(
-                        class_name="h-1.5 w-1.5 rounded-full bg-emerald-500"
-                    ),
-                    rx.el.span(
-                        "pt.wikipedia.org",
-                        class_name=rx.cond(
-                            ResearchState.dark_mode,
-                            "text-xs font-medium text-gray-300",
-                            "text-xs font-medium text-gray-700",
-                        ),
-                    ),
-                    class_name=rx.cond(
-                        ResearchState.dark_mode,
-                        "inline-flex items-center gap-1.5 px-2.5 py-1 rounded-full bg-gray-800 border border-gray-700",
-                        "inline-flex items-center gap-1.5 px-2.5 py-1 rounded-full bg-gray-50 border border-gray-200",
-                    ),
-                ),
-            ),
-            class_name="flex items-start justify-between gap-4 mb-5 flex-wrap",
+            class_name="flex items-center gap-1.5 mb-2",
         ),
+        rx.el.div(
+            suggestion_button("Fernando Pessoa"),
+            suggestion_button("Machado de Assis"),
+            suggestion_button("Marie Curie"),
+            suggestion_button("Carlos Drummond de Andrade"),
+            suggestion_button("Clarice Lispector"),
+            suggestion_button("Albert Einstein"),
+            suggestion_button("Cecília Meireles"),
+            class_name="flex items-center gap-1.5 flex-wrap",
+        ),
+        class_name=rx.cond(
+            ResearchState.dark_mode,
+            "px-4 py-3 rounded-lg bg-gradient-to-r from-blue-950/30 to-gray-900 border border-blue-900/40 mt-3",
+            "px-4 py-3 rounded-lg bg-gradient-to-r from-blue-50/70 to-white border border-blue-100 mt-3",
+        ),
+    )
+
+
+def search_panel() -> rx.Component:
+    return rx.el.div(
+        workbench_header(),
         rx.el.div(
             rx.el.div(
                 rx.icon(
@@ -407,12 +455,13 @@ def search_panel() -> rx.Component:
                 ),
                 rx.el.span("Pesquisar"),
                 on_click=ResearchState.perform_search,
-                class_name="inline-flex items-center gap-2 px-5 py-3 text-sm font-semibold text-white bg-blue-600 hover:bg-blue-700 rounded-lg transition-colors shrink-0 disabled:opacity-50 disabled:cursor-not-allowed",
+                class_name="inline-flex items-center gap-2 px-5 py-3 text-sm font-semibold text-white bg-gradient-to-br from-blue-600 to-blue-700 hover:from-blue-700 hover:to-blue-800 rounded-lg transition-all shadow-sm shrink-0 disabled:opacity-50 disabled:cursor-not-allowed",
                 disabled=ResearchState.is_searching,
                 aria_label="Executar busca biográfica",
             ),
             class_name="flex flex-col sm:flex-row gap-2",
         ),
+        guided_chips_bar(),
         rx.cond(
             ResearchState.error_message != "",
             rx.el.div(
@@ -514,7 +563,7 @@ def search_panel() -> rx.Component:
         ),
         class_name=rx.cond(
             ResearchState.dark_mode,
-            "bg-gray-900 border border-gray-800 rounded-xl p-6",
-            "bg-white border border-gray-200 rounded-xl p-6",
+            "bg-gray-900 border border-gray-800 rounded-2xl p-6 relative overflow-hidden",
+            "bg-white border border-gray-200 rounded-2xl p-6 relative overflow-hidden shadow-sm",
         ),
     )

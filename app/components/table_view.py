@@ -146,6 +146,140 @@ def table_row(person) -> rx.Component:
     )
 
 
+def table_summary_strip() -> rx.Component:
+    cell_dark = "px-3 py-2 border-r border-gray-800"
+    cell_light = "px-3 py-2 border-r border-gray-100"
+    return rx.el.div(
+        rx.el.div(
+            rx.el.span(
+                "Total",
+                class_name="text-[10px] font-semibold uppercase text-gray-400",
+            ),
+            rx.el.p(
+                ResearchState.total_people.to_string(),
+                class_name=rx.cond(
+                    ResearchState.dark_mode,
+                    "text-sm font-bold text-gray-100",
+                    "text-sm font-bold text-gray-900",
+                ),
+            ),
+            class_name=rx.cond(ResearchState.dark_mode, cell_dark, cell_light),
+        ),
+        rx.el.div(
+            rx.el.span(
+                "Filtrados",
+                class_name="text-[10px] font-semibold uppercase text-gray-400",
+            ),
+            rx.el.p(
+                ResearchState.filtered_people.length().to_string(),
+                class_name=rx.cond(
+                    ResearchState.dark_mode,
+                    "text-sm font-bold text-blue-400",
+                    "text-sm font-bold text-blue-600",
+                ),
+            ),
+            class_name=rx.cond(ResearchState.dark_mode, cell_dark, cell_light),
+        ),
+        rx.el.div(
+            rx.el.span(
+                "Completude",
+                class_name="text-[10px] font-semibold uppercase text-gray-400",
+            ),
+            rx.el.p(
+                f"{ResearchState.avg_completeness}%",
+                class_name=rx.cond(
+                    ResearchState.dark_mode,
+                    "text-sm font-bold text-emerald-400",
+                    "text-sm font-bold text-emerald-600",
+                ),
+            ),
+            class_name=rx.cond(ResearchState.dark_mode, cell_dark, cell_light),
+        ),
+        rx.el.div(
+            rx.el.span(
+                "Locais",
+                class_name="text-[10px] font-semibold uppercase text-gray-400",
+            ),
+            rx.el.p(
+                ResearchState.total_locations.to_string(),
+                class_name=rx.cond(
+                    ResearchState.dark_mode,
+                    "text-sm font-bold text-gray-100",
+                    "text-sm font-bold text-gray-900",
+                ),
+            ),
+            class_name=rx.cond(ResearchState.dark_mode, cell_dark, cell_light),
+        ),
+        rx.el.div(
+            rx.el.span(
+                "Período",
+                class_name="text-[10px] font-semibold uppercase text-gray-400",
+            ),
+            rx.el.p(
+                ResearchState.timeline_span,
+                class_name=rx.cond(
+                    ResearchState.dark_mode,
+                    "text-sm font-bold text-gray-100 font-mono",
+                    "text-sm font-bold text-gray-900 font-mono",
+                ),
+            ),
+            class_name="px-3 py-2",
+        ),
+        class_name=rx.cond(
+            ResearchState.dark_mode,
+            "flex items-center bg-gray-950 rounded-xl border border-gray-800 overflow-hidden mb-4 flex-wrap",
+            "flex items-center bg-gradient-to-r from-blue-50/40 to-white rounded-xl border border-blue-100 overflow-hidden mb-4 flex-wrap",
+        ),
+    )
+
+
+def export_context_bar() -> rx.Component:
+    return rx.el.div(
+        rx.el.div(
+            rx.icon(
+                "info",
+                class_name=rx.cond(
+                    ResearchState.dark_mode,
+                    "h-3.5 w-3.5 text-blue-400 shrink-0",
+                    "h-3.5 w-3.5 text-blue-600 shrink-0",
+                ),
+            ),
+            rx.el.p(
+                rx.cond(
+                    ResearchState.table_search != "",
+                    f"Filtro ativo: “{ResearchState.table_search}”. Apenas registros visíveis serão úteis para análise focada.",
+                    f"Sem filtro ativo. Todos os {ResearchState.total_people} registro(s) salvos localmente serão exportados.",
+                ),
+                class_name=rx.cond(
+                    ResearchState.dark_mode,
+                    "text-[11px] text-blue-200 leading-relaxed",
+                    "text-[11px] text-blue-800 leading-relaxed",
+                ),
+            ),
+            class_name="flex items-center gap-2 flex-1 min-w-0",
+        ),
+        rx.cond(
+            ResearchState.table_search != "",
+            rx.el.button(
+                rx.icon("x", class_name="h-3 w-3"),
+                rx.el.span("Limpar filtro"),
+                on_click=lambda: ResearchState.set_table_search(""),
+                class_name=rx.cond(
+                    ResearchState.dark_mode,
+                    "inline-flex items-center gap-1 text-[11px] font-semibold text-blue-300 hover:text-blue-100 px-2 py-1 rounded shrink-0",
+                    "inline-flex items-center gap-1 text-[11px] font-semibold text-blue-700 hover:text-blue-900 px-2 py-1 rounded shrink-0",
+                ),
+            ),
+            rx.fragment(),
+        ),
+        class_name=rx.cond(
+            ResearchState.dark_mode,
+            "flex items-center gap-2 mb-3 px-3 py-2 rounded-lg bg-blue-950/30 border border-blue-900/50",
+            "flex items-center gap-2 mb-3 px-3 py-2 rounded-lg bg-blue-50/60 border border-blue-100",
+        ),
+    )
+
+
 def table_view() -> rx.Component:
     th_cls = rx.cond(
         ResearchState.dark_mode,
@@ -155,20 +289,37 @@ def table_view() -> rx.Component:
     return rx.el.div(
         rx.el.div(
             rx.el.div(
-                rx.el.h2(
-                    "Tabela completa",
-                    class_name=rx.cond(
-                        ResearchState.dark_mode,
-                        "text-lg font-bold text-gray-100",
-                        "text-lg font-bold text-gray-900",
+                rx.el.div(
+                    rx.el.div(
+                        rx.icon("table-2", class_name="h-4 w-4 text-white"),
+                        class_name="h-9 w-9 rounded-lg bg-gradient-to-br from-rose-500 to-rose-700 flex items-center justify-center shrink-0",
                     ),
+                    rx.el.div(
+                        rx.el.span(
+                            "Workbench de dados",
+                            class_name=rx.cond(
+                                ResearchState.dark_mode,
+                                "text-[10px] font-bold tracking-widest text-rose-400 uppercase",
+                                "text-[10px] font-bold tracking-widest text-rose-700 uppercase",
+                            ),
+                        ),
+                        rx.el.h2(
+                            "Tabela completa",
+                            class_name=rx.cond(
+                                ResearchState.dark_mode,
+                                "text-lg font-bold text-gray-100 leading-tight",
+                                "text-lg font-bold text-gray-900 leading-tight",
+                            ),
+                        ),
+                    ),
+                    class_name="flex items-center gap-3",
                 ),
                 rx.el.p(
-                    "Composição completa de pessoas pesquisadas com opção de exportação.",
+                    "Composição completa de pessoas pesquisadas com filtro instantâneo e exportação CSV.",
                     class_name=rx.cond(
                         ResearchState.dark_mode,
-                        "text-sm text-gray-400 mt-0.5",
-                        "text-sm text-gray-500 mt-0.5",
+                        "text-sm text-gray-400 mt-2",
+                        "text-sm text-gray-500 mt-2",
                     ),
                 ),
             ),
@@ -201,6 +352,8 @@ def table_view() -> rx.Component:
             ),
             class_name="flex items-center justify-between gap-4 mb-4 flex-wrap",
         ),
+        table_summary_strip(),
+        export_context_bar(),
         rx.cond(
             ResearchState.total_people > 0,
             rx.el.div(
