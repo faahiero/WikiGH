@@ -1320,6 +1320,41 @@ class ResearchState(rx.State):
             self.is_extracting = False
             self.error_message = "Falha ao consultar o Wikidata. Verifique sua conexão e tente novamente."
             self._add_history(search_term, title, "Erro de rede")
+            yield rx.toast(
+                title="Erro ao consultar Wikidata",
+                description="Não foi possível obter os dados estruturados. Tente novamente em instantes.",
+                position="bottom-right",
+                duration=4500,
+                close_button=True,
+            )
+            return
+        if not isinstance(entity, dict):
+            self.is_extracting = False
+            self.error_message = (
+                "Resposta inválida do Wikidata. Tente novamente em instantes."
+            )
+            self._add_history(search_term, title, "Resposta inválida")
+            yield rx.toast(
+                title="Resposta inválida",
+                description="O Wikidata retornou um formato inesperado para este artigo.",
+                position="bottom-right",
+                duration=4500,
+                close_button=True,
+            )
+            return
+        claims = entity.get("claims", {}) or {}
+        if not isinstance(claims, dict) or not claims:
+            self.is_extracting = False
+            self.error_message = "Este artigo do Wikidata não possui declarações estruturadas (claims). Não é possível extrair dados biográficos."
+            self._add_history(search_term, title, "Sem claims")
+            yield rx.toast(
+                title="Sem dados estruturados",
+                description="A entidade Wikidata não tem claims utilizáveis para extração biográfica.",
+                position="bottom-right",
+                duration=4500,
+                close_button=True,
+            )
+            return
         is_person = False
         for c in claims.get("P31", []) or []:
             try:
