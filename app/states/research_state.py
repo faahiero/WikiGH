@@ -364,32 +364,67 @@ def _coords_of(entity: dict | None) -> tuple[float, float] | None:
     if not entity:
         return None
     claims = entity.get("claims", {}) or {}
-    p625 = claims.get("P625")
+    p625 = claims.get("P625") or []
     if not p625:
         return None
     try:
-        v = p625[0]["mainsnak"]["datavalue"]["value"]
+        snak = p625[0].get("mainsnak", {}) or {}
+        if snak.get("snaktype") != "value":
+            return None
+        v = snak.get("datavalue", {}).get("value", {}) or {}
+        if "latitude" not in v or "longitude" not in v:
+            return None
         return float(v["latitude"]), float(v["longitude"])
-    except Exception:
+    except (KeyError, TypeError, ValueError, IndexError):
         logging.exception("Unexpected error")
+        return None
+    except Exception as e:
+        logging.exception(f"Unexpected error parsing coordinates: {e}")
         return None
 
 
 def _claim_qid(claims: dict, prop: str) -> str:
+    if not claims or not isinstance(claims, dict):
+        return ""
+    entries = claims.get(prop) or []
+    if not entries:
+        return ""
     try:
-        return claims[prop][0]["mainsnak"]["datavalue"]["value"]["id"]
-    except Exception:
+        snak = entries[0].get("mainsnak", {}) or {}
+        if snak.get("snaktype") != "value":
+            return ""
+        value = snak.get("datavalue", {}).get("value", {}) or {}
+        return value.get("id", "") or ""
+    except (KeyError, TypeError, IndexError, AttributeError):
         logging.exception("Unexpected error")
+        return ""
+    except Exception as e:
+        logging.exception(f"Unexpected error reading claim qid for {prop}: {e}")
         return ""
 
 
 def _claim_time(claims: dict, prop: str) -> str:
+    if not claims or not isinstance(claims, dict):
+        return ""
+    entries = claims.get(prop) or []
+    if not entries:
+        return ""
     try:
-        return _parse_wd_time(
-            claims[prop][0]["mainsnak"]["datavalue"]["value"]["time"]
-        )
-    except Exception:
+        snak = entries[0].get("mainsnak", {}) or {}
+        if snak.get("snaktype") != "value":
+            return ""
+        value = snak.get("datavalue", {}).get("value", {}) or {}
+        time_str = value.get("time", "") or ""
+        if not time_str:
+            return ""
+        return _parse_wd_time(time_str)
+    except (KeyError, TypeError, IndexError, AttributeError):
         logging.exception("Unexpected error")
+        return ""
+    except Exception as e:
+        logging.exception(
+            f"Unexpected error reading claim time for {prop}: {e}"
+        )
         return ""
 
 
@@ -1228,16 +1263,14 @@ class ResearchState(rx.State):
                 claims = entity.get("claims", {}) or {}
                 try:
                     for c in claims.get("P31", []) or []:
-                        if (
-                            c.get("mainsnak", {})
-                            .get("datavalue", {})
-                            .get("value", {})
-                            .get("id")
-                            == "Q5"
-                        ):
+                        snak = c.get("mainsnak", {}) or {}
+                        if snak.get("snaktype") != "value":
+                            continue
+                        value = snak.get("datavalue", {}).get("value", {}) or {}
+                        if value.get("id") == "Q5":
                             is_human = True
                             break
-                except Exception:
+                except (KeyError, TypeError, AttributeError):
                     logging.exception("Unexpected error")
                     is_human = False
 
@@ -1287,17 +1320,17 @@ class ResearchState(rx.State):
             self.is_extracting = False
             self.error_message = "Falha ao consultar o Wikidata. Verifique sua conexão e tente novamente."
             self._add_history(search_term, title, "Erro de rede")
-            return
-
-        claims = entity.get("claims", {}) or {}
-
         is_person = False
         for c in claims.get("P31", []) or []:
             try:
-                if c["mainsnak"]["datavalue"]["value"]["id"] == "Q5":
+                snak = c.get("mainsnak", {}) or {}
+                if snak.get("snaktype") != "value":
+                    continue
+                value = snak.get("datavalue", {}).get("value", {}) or {}
+                if value.get("id") == "Q5":
                     is_person = True
                     break
-            except Exception:
+            except (KeyError, TypeError, AttributeError):
                 logging.exception("Unexpected error")
                 continue
 
