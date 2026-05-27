@@ -1,0 +1,1314 @@
+import reflex as rx
+import logging
+import re
+import asyncio
+import requests
+import sqlite3
+from pathlib import Path
+from datetime import datetime
+from typing import TypedDict
+
+
+WIKI_API = "https://pt.wikipedia.org/w/api.php"
+WIKIDATA_API = "https://www.wikidata.org/w/api.php"
+USER_AGENT = (
+    "WikipediaGeoHist/1.0 (https://reflex.dev; educational research app)"
+)
+HEADERS = {"User-Agent": USER_AGENT}
+
+DB_PATH = Path("geohist.db")
+
+
+def init_db():
+    try:
+        conn = sqlite3.connect(DB_PATH)
+        cursor = conn.cursor()
+        cursor.execute("""
+            CREATE TABLE IF NOT EXISTS people (
+                id TEXT PRIMARY KEY,
+                name TEXT,
+                nationality TEXT,
+                birth_date TEXT,
+                death_date TEXT,
+                birth_place TEXT,
+                death_place TEXT,
+                birth_lat REAL,
+                birth_lng REAL,
+                death_lat REAL,
+                death_lng REAL,
+                article_url TEXT,
+                summary TEXT,
+                searched_at TEXT,
+                completeness INTEGER,
+                image_url TEXT DEFAULT ''
+            )
+        """)
+        # Safe migration: add image_url column if missing on older DBs
+        cursor.execute("PRAGMA table_info(people)")
+        cols = [row[1] for row in cursor.fetchall()]
+        if "image_url" not in cols:
+            try:
+                cursor.execute(
+                    "ALTER TABLE people ADD COLUMN image_url TEXT DEFAULT ''"
+                )
+            except Exception as e:
+                logging.exception(f"Erro ao migrar coluna image_url: {e}")
+        cursor.execute("""
+            CREATE TABLE IF NOT EXISTS history (
+                id INTEGER PRIMARY KEY AUTOINCREMENT,
+                term TEXT,
+                title TEXT,
+                timestamp TEXT,
+                status TEXT
+            )
+        """)
+        conn.commit()
+        conn.close()
+    except Exception as e:
+        logging.exception(f"Erro ao inicializar banco de dados SQLite: {e}")
+
+
+def save_person_db(p: dict):
+    try:
+        conn = sqlite3.connect(DB_PATH)
+        cursor = conn.cursor()
+        cursor.execute(
+            """
+            INSERT OR REPLACE INTO people (
+                id, name, nationality, birth_date, death_date, birth_place, death_place,
+                birth_lat, birth_lng, death_lat, death_lng, article_url, summary, searched_at, completeness, image_url
+            ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+        """,
+            (
+                p["id"],
+                p["name"],
+                p["nationality"],
+                p["birth_date"],
+                p["death_date"],
+                p["birth_place"],
+                p["death_place"],
+                p["birth_lat"],
+                p["birth_lng"],
+                p["death_lat"],
+                p["death_lng"],
+                p["article_url"],
+                p["summary"],
+                p["searched_at"],
+                p["completeness"],
+                p.get("image_url", ""),
+            ),
+        )
+        conn.commit()
+        conn.close()
+    except Exception as e:
+        logging.exception(f"Erro ao salvar pessoa no SQLite: {e}")
+
+
+def delete_person_db(pid: str):
+    try:
+        conn = sqlite3.connect(DB_PATH)
+        cursor = conn.cursor()
+        cursor.execute("DELETE FROM people WHERE id = ?", (pid,))
+        conn.commit()
+        conn.close()
+    except Exception as e:
+        logging.exception(f"Erro ao excluir pessoa do SQLite: {e}")
+
+
+def load_people_db() -> list:
+    try:
+        conn = sqlite3.connect(DB_PATH)
+        conn.row_factory = sqlite3.Row
+        cursor = conn.cursor()
+        cursor.execute("SELECT * FROM people ORDER BY searched_at DESC")
+        rows = cursor.fetchall()
+        out = []
+        col_names = rows[0].keys() if rows else []
+        for r in rows:
+            image_url = ""
+            if "image_url" in col_names:
+                image_url = r["image_url"] or ""
+            out.append(
+                {
+                    "id": r["id"],
+                    "name": r["name"],
+                    "nationality": r["nationality"],
+                    "birth_date": r["birth_date"],
+                    "death_date": r["death_date"],
+                    "birth_place": r["birth_place"],
+                    "death_place": r["death_place"],
+                    "birth_lat": float(r["birth_lat"]),
+                    "birth_lng": float(r["birth_lng"]),
+                    "death_lat": float(r["death_lat"]),
+                    "death_lng": float(r["death_lng"]),
+                    "article_url": r["article_url"],
+                    "summary": r["summary"],
+                    "searched_at": r["searched_at"],
+                    "completeness": int(r["completeness"]),
+                    "image_url": image_url,
+                }
+            )
+        conn.close()
+        return out
+    except Exception as e:
+        logging.exception(f"Erro ao carregar pessoas do SQLite: {e}")
+        return []
+
+
+def save_history_db(h: dict):
+    try:
+        conn = sqlite3.connect(DB_PATH)
+        cursor = conn.cursor()
+        cursor.execute(
+            """
+            INSERT INTO history (term, title, timestamp, status)
+            VALUES (?, ?, ?, ?)
+        """,
+            (h["term"], h["title"], h["timestamp"], h["status"]),
+        )
+        conn.commit()
+        conn.close()
+    except Exception as e:
+        logging.exception(f"Erro ao salvar historico no SQLite: {e}")
+
+
+def clear_history_db():
+    try:
+        conn = sqlite3.connect(DB_PATH)
+        cursor = conn.cursor()
+        cursor.execute("DELETE FROM history")
+        conn.commit()
+        conn.close()
+    except Exception as e:
+        logging.exception(f"Erro ao limpar historico no SQLite: {e}")
+
+
+def load_history_db() -> list:
+    try:
+        conn = sqlite3.connect(DB_PATH)
+        conn.row_factory = sqlite3.Row
+        cursor = conn.cursor()
+        cursor.execute(
+            "SELECT term, title, timestamp, status FROM history ORDER BY id DESC LIMIT 50"
+        )
+        rows = cursor.fetchall()
+        out = []
+        for r in rows:
+            out.append(
+                {
+                    "term": r["term"],
+                    "title": r["title"],
+                    "timestamp": r["timestamp"],
+                    "status": r["status"],
+                }
+            )
+        conn.close()
+        return out
+    except Exception as e:
+        logging.exception(f"Erro ao carregar historico do SQLite: {e}")
+        return []
+
+
+class SearchResult(TypedDict):
+    title: str
+    snippet: str
+    pageid: int
+
+
+class PersonRecord(TypedDict):
+    id: str
+    name: str
+    nationality: str
+    birth_date: str
+    death_date: str
+    birth_place: str
+    death_place: str
+    birth_lat: float
+    birth_lng: float
+    death_lat: float
+    death_lng: float
+    article_url: str
+    summary: str
+    searched_at: str
+    completeness: int
+    image_url: str
+
+
+class HistoryEntry(TypedDict):
+    term: str
+    title: str
+    timestamp: str
+    status: str
+
+
+def _strip_html(text: str) -> str:
+    return re.sub(r"<[^>]+>", "", text or "").strip()
+
+
+def _parse_wd_time(time_str: str) -> str:
+    if not time_str:
+        return ""
+    try:
+        clean = time_str.lstrip("+-").split("T")[0]
+        return clean
+    except Exception:
+        logging.exception("Unexpected error")
+        return time_str
+
+
+def _api_get(url: str, params: dict, timeout: int = 10) -> dict | None:
+    try:
+        r = requests.get(url, headers=HEADERS, params=params, timeout=timeout)
+        r.raise_for_status()
+        return r.json()
+    except Exception as e:
+        logging.exception(f"API request failed: {e}")
+        return None
+
+
+def _wiki_search(term: str, limit: int = 8) -> list[dict] | None:
+    data = _api_get(
+        WIKI_API,
+        {
+            "action": "query",
+            "list": "search",
+            "srsearch": term,
+            "srnamespace": "0",
+            "srlimit": str(limit),
+            "format": "json",
+        },
+    )
+    if data is None:
+        return None
+    return data.get("query", {}).get("search", []) or []
+
+
+def _wiki_article(title: str) -> dict | None:
+    data = _api_get(
+        WIKI_API,
+        {
+            "action": "query",
+            "titles": title,
+            "prop": "extracts|pageprops|info|pageimages",
+            "exintro": 1,
+            "explaintext": 1,
+            "exchars": 800,
+            "ppprop": "wikibase_item|disambiguation",
+            "inprop": "url",
+            "piprop": "thumbnail|original|name",
+            "pithumbsize": "400",
+            "redirects": 1,
+            "format": "json",
+        },
+    )
+    if data is None:
+        return None
+    pages = data.get("query", {}).get("pages", {})
+    if not pages:
+        return {}
+    return next(iter(pages.values()))
+
+
+def _wd_entity(
+    qid: str, props: str = "labels|descriptions|claims"
+) -> dict | None:
+    data = _api_get(
+        WIKIDATA_API,
+        {
+            "action": "wbgetentities",
+            "ids": qid,
+            "props": props,
+            "languages": "pt|en",
+            "format": "json",
+        },
+    )
+    if data is None:
+        return None
+    return data.get("entities", {}).get(qid)
+
+
+def _wd_entities(qids: list[str]) -> dict[str, dict]:
+    if not qids:
+        return {}
+    out: dict[str, dict] = {}
+    for i in range(0, len(qids), 40):
+        chunk = qids[i : i + 40]
+        data = _api_get(
+            WIKIDATA_API,
+            {
+                "action": "wbgetentities",
+                "ids": "|".join(chunk),
+                "props": "labels|claims",
+                "languages": "pt|en",
+                "format": "json",
+            },
+        )
+        if data is None:
+            continue
+        out.update(data.get("entities", {}) or {})
+    return out
+
+
+def _label_of(entity: dict | None) -> str:
+    if not entity:
+        return ""
+    labels = entity.get("labels", {}) or {}
+    return (
+        labels.get("pt", {}).get("value")
+        or labels.get("en", {}).get("value")
+        or ""
+    )
+
+
+def _coords_of(entity: dict | None) -> tuple[float, float] | None:
+    if not entity:
+        return None
+    claims = entity.get("claims", {}) or {}
+    p625 = claims.get("P625")
+    if not p625:
+        return None
+    try:
+        v = p625[0]["mainsnak"]["datavalue"]["value"]
+        return float(v["latitude"]), float(v["longitude"])
+    except Exception:
+        logging.exception("Unexpected error")
+        return None
+
+
+def _claim_qid(claims: dict, prop: str) -> str:
+    try:
+        return claims[prop][0]["mainsnak"]["datavalue"]["value"]["id"]
+    except Exception:
+        logging.exception("Unexpected error")
+        return ""
+
+
+def _claim_time(claims: dict, prop: str) -> str:
+    try:
+        return _parse_wd_time(
+            claims[prop][0]["mainsnak"]["datavalue"]["value"]["time"]
+        )
+    except Exception:
+        logging.exception("Unexpected error")
+        return ""
+
+
+# Helper functions refactored out of the async generator to avoid linting errors
+async def _fallback_coords(
+    place_qid: str, ref_entities: dict
+) -> tuple[float, float] | None:
+    if not place_qid:
+        return None
+    place_entity = ref_entities.get(place_qid)
+    if not place_entity:
+        return None
+    place_claims = place_entity.get("claims", {}) or {}
+    country_qid = _claim_qid(place_claims, "P17")
+    if not country_qid:
+        return None
+    country_entity = await asyncio.to_thread(_wd_entity, country_qid)
+    return _coords_of(country_entity)
+
+
+def _full_place(place_qid: str, base_label: str, ref_entities: dict) -> str:
+    if not place_qid or not base_label:
+        return base_label
+    place_entity = ref_entities.get(place_qid)
+    if not place_entity:
+        return base_label
+    country_qid = _claim_qid(place_entity.get("claims", {}) or {}, "P17")
+    if not country_qid:
+        return base_label
+    country_entity = ref_entities.get(country_qid)
+    country_label = _label_of(country_entity)
+    if country_label and country_label.lower() not in base_label.lower():
+        return f"{base_label}, {country_label}"
+    return base_label
+
+
+class MapPoint(TypedDict):
+    id: str
+    name: str
+    place: str
+    date: str
+    lat: float
+    lng: float
+    kind: str
+    image_url: str
+
+
+class TimelineEvent(TypedDict):
+    id: str
+    person_id: str
+    name: str
+    year: int
+    date: str
+    place: str
+    kind: str
+
+
+class DistRow(TypedDict):
+    label: str
+    count: int
+
+
+class ResearchState(rx.State):
+    dark_mode: bool = False
+    search_query: str = ""
+    is_searching: bool = False
+    landing_mode: bool = True  # True if showing public landing page, False if showing protected dashboard
+
+    @rx.event
+    def toggle_dark_mode(self):
+        self.dark_mode = not self.dark_mode
+
+    @rx.event
+    def enter_app(self):
+        self.landing_mode = False
+
+    @rx.event
+    def enter_landing(self):
+        self.landing_mode = True
+
+    is_loading_article: bool = False
+    is_extracting: bool = False
+    is_disambiguation: bool = False
+    is_human: bool = False
+    error_message: str = ""
+    info_message: str = ""
+
+    search_results: list[SearchResult] = []
+    selected_preview: dict[str, str] = {
+        "title": "",
+        "extract": "",
+        "url": "",
+        "wikidata_id": "",
+        "image_url": "",
+    }
+    has_preview: bool = False
+    people: list[PersonRecord] = []
+    history: list[HistoryEntry] = []
+
+    active_view: str = "dashboard"
+    timeline_filter: str = "all"
+    selected_person_id: str = ""
+    table_search: str = ""
+    storage_ready: bool = False
+    last_persist_action: str = ""
+
+    @rx.event
+    async def load_data(self):
+        await asyncio.to_thread(init_db)
+        try:
+            self.people = await asyncio.to_thread(load_people_db)
+            self.history = await asyncio.to_thread(load_history_db)
+            self.storage_ready = True
+            self.last_persist_action = "carregado"
+            people_count = len(self.people)
+            history_count = len(self.history)
+            if people_count > 0 or history_count > 0:
+                yield rx.toast(
+                    title="Dados restaurados",
+                    description=f"{people_count} pessoa(s) e {history_count} busca(s) carregados do armazenamento local.",
+                    position="bottom-right",
+                    duration=4000,
+                    close_button=True,
+                )
+            else:
+                yield rx.toast(
+                    title="Armazenamento local pronto",
+                    description="Nenhum registro salvo ainda. Sua primeira pesquisa confirmada será salva automaticamente.",
+                    position="bottom-right",
+                    duration=3500,
+                    close_button=True,
+                )
+        except Exception as e:
+            logging.exception(f"Erro ao carregar dados persistidos: {e}")
+            self.storage_ready = False
+            yield rx.toast(
+                title="Falha ao restaurar dados",
+                description="Não foi possível ler do armazenamento local. A sessão começará vazia.",
+                position="bottom-right",
+                duration=5000,
+                close_button=True,
+            )
+
+    @rx.event
+    def set_active_view(self, view: str):
+        self.active_view = view
+
+    @rx.event
+    def set_timeline_filter(self, value: str):
+        self.timeline_filter = value
+
+    @rx.event
+    def select_person(self, person_id: str):
+        self.selected_person_id = person_id
+
+    @rx.event
+    def set_table_search(self, value: str):
+        self.table_search = value
+
+    @rx.var
+    def map_points(self) -> list[MapPoint]:
+        points: list[MapPoint] = []
+        for p in self.people:
+            if p["birth_lat"] != 0.0 or p["birth_lng"] != 0.0:
+                points.append(
+                    {
+                        "id": f"{p['id']}_b",
+                        "name": p["name"],
+                        "place": p["birth_place"],
+                        "date": p["birth_date"],
+                        "lat": p["birth_lat"],
+                        "lng": p["birth_lng"],
+                        "kind": "Nascimento",
+                        "image_url": p.get("image_url", ""),
+                    }
+                )
+            if p["death_lat"] != 0.0 or p["death_lng"] != 0.0:
+                points.append(
+                    {
+                        "id": f"{p['id']}_d",
+                        "name": p["name"],
+                        "place": p["death_place"],
+                        "date": p["death_date"],
+                        "lat": p["death_lat"],
+                        "lng": p["death_lng"],
+                        "kind": "Falecimento",
+                        "image_url": p.get("image_url", ""),
+                    }
+                )
+        return points
+
+    @rx.var
+    def total_map_points(self) -> int:
+        return len(self.map_points)
+
+    @rx.var
+    def map_center_lat(self) -> float:
+        pts = self.map_points
+        if not pts:
+            return 20.0
+        return sum(p["lat"] for p in pts) / len(pts)
+
+    @rx.var
+    def map_center_lng(self) -> float:
+        pts = self.map_points
+        if not pts:
+            return 0.0
+        return sum(p["lng"] for p in pts) / len(pts)
+
+    @rx.var
+    def timeline_events(self) -> list[TimelineEvent]:
+        events: list[TimelineEvent] = []
+        for p in self.people:
+            if p["birth_date"] and p["birth_date"] != "—":
+                try:
+                    year = int(p["birth_date"][:4])
+                    events.append(
+                        {
+                            "id": f"{p['id']}_b",
+                            "person_id": p["id"],
+                            "name": p["name"],
+                            "year": year,
+                            "date": p["birth_date"],
+                            "place": p["birth_place"],
+                            "kind": "Nascimento",
+                        }
+                    )
+                except ValueError:
+                    pass
+            if p["death_date"] and p["death_date"] != "—":
+                try:
+                    year = int(p["death_date"][:4])
+                    events.append(
+                        {
+                            "id": f"{p['id']}_d",
+                            "person_id": p["id"],
+                            "name": p["name"],
+                            "year": year,
+                            "date": p["death_date"],
+                            "place": p["death_place"],
+                            "kind": "Falecimento",
+                        }
+                    )
+                except ValueError:
+                    pass
+        events.sort(key=lambda e: e["year"])
+        if self.timeline_filter == "birth":
+            events = [e for e in events if e["kind"] == "Nascimento"]
+        elif self.timeline_filter == "death":
+            events = [e for e in events if e["kind"] == "Falecimento"]
+        return events
+
+    @rx.var
+    def total_timeline_events(self) -> int:
+        return len(self.timeline_events)
+
+    @rx.var
+    def selected_person(self) -> dict[str, str]:
+        for p in self.people:
+            if p["id"] == self.selected_person_id:
+                return {
+                    "id": p["id"],
+                    "name": p["name"],
+                    "nationality": p["nationality"],
+                    "birth_date": p["birth_date"],
+                    "death_date": p["death_date"],
+                    "birth_place": p["birth_place"],
+                    "death_place": p["death_place"],
+                    "summary": p["summary"],
+                    "article_url": p["article_url"],
+                    "image_url": p.get("image_url", ""),
+                }
+        return {
+            "id": "",
+            "name": "",
+            "nationality": "",
+            "birth_date": "",
+            "death_date": "",
+            "birth_place": "",
+            "death_place": "",
+            "summary": "",
+            "article_url": "",
+            "image_url": "",
+        }
+
+    @rx.var
+    def has_selected_person(self) -> bool:
+        return self.selected_person_id != "" and any(
+            p["id"] == self.selected_person_id for p in self.people
+        )
+
+    @rx.var
+    def nationality_distribution(self) -> list[DistRow]:
+        counts: dict[str, int] = {}
+        for p in self.people:
+            key = (
+                p["nationality"]
+                if p["nationality"] and p["nationality"] != "—"
+                else "Desconhecida"
+            )
+            counts[key] = counts.get(key, 0) + 1
+        items = sorted(counts.items(), key=lambda kv: kv[1], reverse=True)
+        return [{"label": k, "count": v} for k, v in items]
+
+    @rx.var
+    def century_distribution(self) -> list[DistRow]:
+        counts: dict[int, int] = {}
+        for p in self.people:
+            if p["birth_date"] and p["birth_date"] != "—":
+                try:
+                    y = int(p["birth_date"][:4])
+                    century = (y - 1) // 100 + 1 if y > 0 else 0
+                    counts[century] = counts.get(century, 0) + 1
+                except ValueError:
+                    pass
+        items = sorted(counts.items())
+        out: list[DistRow] = []
+        for c, v in items:
+            label = f"Século {c}" if c > 0 else "Antigo"
+            out.append({"label": label, "count": v})
+        return out
+
+    @rx.var
+    def completeness_buckets(self) -> list[DistRow]:
+        buckets = {"100%": 0, "75-99%": 0, "50-74%": 0, "<50%": 0}
+        for p in self.people:
+            c = p["completeness"]
+            if c == 100:
+                buckets["100%"] += 1
+            elif c >= 75:
+                buckets["75-99%"] += 1
+            elif c >= 50:
+                buckets["50-74%"] += 1
+            else:
+                buckets["<50%"] += 1
+        return [{"label": k, "count": v} for k, v in buckets.items()]
+
+    @rx.var
+    def avg_completeness(self) -> int:
+        if not self.people:
+            return 0
+        return int(
+            round(
+                sum(p["completeness"] for p in self.people) / len(self.people)
+            )
+        )
+
+    @rx.var
+    def dashboard_latest_people(self) -> list[PersonRecord]:
+        return self.people[:5]
+
+    @rx.var
+    def dashboard_recent_history(self) -> list[HistoryEntry]:
+        return self.history[:6]
+
+    @rx.var
+    def dashboard_top_nationalities(self) -> list[DistRow]:
+        return self.nationality_distribution[:5]
+
+    @rx.var
+    def filtered_people(self) -> list[PersonRecord]:
+        q = self.table_search.strip().lower()
+        if not q:
+            return self.people
+        return [
+            p
+            for p in self.people
+            if q in p["name"].lower()
+            or q in p["nationality"].lower()
+            or q in p["birth_place"].lower()
+            or q in p["death_place"].lower()
+        ]
+
+    @rx.var
+    def csv_data(self) -> str:
+        header = "Nome,Nacionalidade,Nascimento,Local Nasc.,Falecimento,Local Falec.,Completude,URL"
+        lines = [header]
+        for p in self.people:
+            row = ",".join(
+                [
+                    f'"{p["name"]}"',
+                    f'"{p["nationality"]}"',
+                    f'"{p["birth_date"]}"',
+                    f'"{p["birth_place"]}"',
+                    f'"{p["death_date"]}"',
+                    f'"{p["death_place"]}"',
+                    str(p["completeness"]),
+                    f'"{p["article_url"]}"',
+                ]
+            )
+            lines.append(row)
+        return "\n".join(lines)
+
+    @rx.event
+    def export_csv(self):
+        return rx.download(
+            data=ResearchState.csv_data,
+            filename="geohist_composicao.csv",
+        )
+
+    @rx.var
+    def total_people(self) -> int:
+        return len(self.people)
+
+    @rx.var
+    def total_locations(self) -> int:
+        places = set()
+        for p in self.people:
+            if p["birth_place"]:
+                places.add(p["birth_place"])
+            if p["death_place"]:
+                places.add(p["death_place"])
+        return len(places)
+
+    @rx.var
+    def timeline_span(self) -> str:
+        years: list[int] = []
+        for p in self.people:
+            if p["birth_date"]:
+                try:
+                    years.append(int(p["birth_date"][:4]))
+                except ValueError:
+                    pass
+            if p["death_date"]:
+                try:
+                    years.append(int(p["death_date"][:4]))
+                except ValueError:
+                    pass
+        if not years:
+            return "—"
+        return f"{min(years)} – {max(years)}"
+
+    @rx.var
+    def total_history(self) -> int:
+        return len(self.history)
+
+    @rx.var
+    def has_results(self) -> bool:
+        return len(self.search_results) > 0
+
+    @rx.event
+    def set_search_query(self, value: str):
+        self.search_query = value
+
+    @rx.event
+    def clear_search(self):
+        self.search_query = ""
+        self.search_results = []
+        self.has_preview = False
+        self.error_message = ""
+        self.info_message = ""
+        self.is_disambiguation = False
+        self.is_human = False
+
+    @rx.event
+    async def search_for(self, term: str):
+        self.search_query = term
+        return ResearchState.perform_search
+
+    @rx.event
+    async def run_suggested_search(self, term: str):
+        self.search_query = term
+        self.error_message = ""
+        self.info_message = ""
+        self.has_preview = False
+        self.is_disambiguation = False
+        if not term.strip():
+            self.error_message = "Digite um termo para iniciar a pesquisa."
+            self.search_results = []
+            return
+        self.is_searching = True
+        results = await asyncio.to_thread(_wiki_search, term.strip(), 8)
+        self.is_searching = False
+        if results is None:
+            self.error_message = "Falha ao consultar a Wikipédia. Verifique sua conexão e tente novamente."
+            self.search_results = []
+            self._add_history(term, "—", "Erro de rede")
+            return
+        if not results:
+            self.error_message = (
+                f"Nenhum resultado encontrado para “{term}”. Tente outro termo."
+            )
+            self.search_results = []
+            self._add_history(term, "—", "Sem resultados")
+            return
+        self.search_results = [
+            {
+                "title": r.get("title", ""),
+                "snippet": _strip_html(r.get("snippet", "")),
+                "pageid": int(r.get("pageid", 0)),
+            }
+            for r in results
+        ]
+        self.info_message = (
+            f"{len(self.search_results)} resultados encontrados para “{term}”. "
+            "Selecione um artigo para pré-visualizar."
+        )
+
+    @rx.event
+    async def perform_search(self):
+        term = self.search_query.strip()
+        self.error_message = ""
+        self.info_message = ""
+        self.has_preview = False
+        self.is_disambiguation = False
+        if not term:
+            self.error_message = "Digite um termo para iniciar a pesquisa."
+            self.search_results = []
+            self.is_searching = False
+            return
+        self.is_searching = True
+        search_term = term
+
+        results = await asyncio.to_thread(_wiki_search, search_term, 8)
+
+        self.is_searching = False
+        if results is None:
+            self.error_message = "Falha ao consultar a Wikipédia. Verifique sua conexão e tente novamente."
+            self.search_results = []
+            self._add_history(search_term, "—", "Erro de rede")
+            return
+        if not results:
+            self.error_message = f"Nenhum resultado encontrado para “{search_term}”. Tente outro termo."
+            self.search_results = []
+            self._add_history(search_term, "—", "Sem resultados")
+            return
+        self.search_results = [
+            {
+                "title": r.get("title", ""),
+                "snippet": _strip_html(r.get("snippet", "")),
+                "pageid": int(r.get("pageid", 0)),
+            }
+            for r in results
+        ]
+        self.info_message = (
+            f"{len(self.search_results)} resultados encontrados para “{search_term}”. "
+            "Selecione um artigo para pré-visualizar."
+        )
+
+    @rx.event
+    async def select_article(self, title: str):
+        self.is_loading_article = True
+        self.error_message = ""
+        self.info_message = ""
+        self.has_preview = False
+        self.is_disambiguation = False
+        self.is_human = False
+        chosen = title
+
+        page = await asyncio.to_thread(_wiki_article, chosen)
+
+        wikidata_id = ""
+        is_disamb = False
+        is_human = False
+        extract = ""
+        page_url = ""
+        page_title = chosen
+
+        if page is None:
+            self.is_loading_article = False
+            self.error_message = "Falha ao carregar o artigo. Verifique sua conexão e tente novamente."
+            return
+
+        if "missing" in page:
+            self.is_loading_article = False
+            self.error_message = (
+                f"Artigo “{chosen}” não foi encontrado na Wikipédia."
+            )
+            return
+
+        page_title = page.get("title", chosen)
+        extract = page.get("extract", "") or ""
+        page_url = page.get("fullurl") or (
+            f"https://pt.wikipedia.org/wiki/{page_title.replace(' ', '_')}"
+        )
+        pageprops = page.get("pageprops", {}) or {}
+        wikidata_id = pageprops.get("wikibase_item", "") or ""
+        is_disamb = "disambiguation" in pageprops
+        thumb = page.get("thumbnail", {}) or {}
+        image_url = thumb.get("source", "") or ""
+
+        entity = None
+        if wikidata_id and not is_disamb:
+            entity = await asyncio.to_thread(_wd_entity, wikidata_id)
+            if entity:
+                claims = entity.get("claims", {}) or {}
+                try:
+                    for c in claims.get("P31", []) or []:
+                        if (
+                            c.get("mainsnak", {})
+                            .get("datavalue", {})
+                            .get("value", {})
+                            .get("id")
+                            == "Q5"
+                        ):
+                            is_human = True
+                            break
+                except Exception:
+                    logging.exception("Unexpected error")
+                    is_human = False
+
+        self.selected_preview = {
+            "title": page_title,
+            "extract": extract or "Sem resumo disponível para este artigo.",
+            "url": page_url,
+            "wikidata_id": wikidata_id or "—",
+            "image_url": image_url,
+        }
+        self.has_preview = True
+        self.is_disambiguation = is_disamb
+        self.is_human = is_human
+        self.is_loading_article = False
+        if is_disamb:
+            self.error_message = "Esta é uma página de desambiguação. Escolha um resultado mais específico nos resultados acima."
+        elif not wikidata_id:
+            self.info_message = "Este artigo não possui vínculo com o Wikidata, portanto dados biográficos estruturados não estão disponíveis."
+        elif not is_human:
+            self.info_message = "Este artigo não parece se referir a uma pessoa. A extração biográfica é otimizada para pessoas (P31 = Q5)."
+        else:
+            self.info_message = "Pré-visualização carregada. Confirme para extrair informações biográficas estruturadas."
+
+    @rx.event
+    async def confirm_article(self):
+        if not self.has_preview or self.is_disambiguation:
+            self.error_message = "Selecione um artigo válido (não desambiguação) antes de confirmar."
+            return
+        preview = dict(self.selected_preview)
+        search_term = self.search_query.strip() or preview.get("title", "")
+        self.is_extracting = True
+        self.error_message = ""
+
+        qid = preview.get("wikidata_id", "")
+        title = preview.get("title", "")
+        url = preview.get("url", "")
+        extract_text = preview.get("extract", "")
+
+        if not qid or qid == "—":
+            self.is_extracting = False
+            self.error_message = "Este artigo não tem entidade no Wikidata; não é possível extrair dados estruturados."
+            self._add_history(search_term, title, "Sem Wikidata")
+            return
+
+        entity = await asyncio.to_thread(_wd_entity, qid)
+        if entity is None:
+            self.is_extracting = False
+            self.error_message = "Falha ao consultar o Wikidata. Verifique sua conexão e tente novamente."
+            self._add_history(search_term, title, "Erro de rede")
+            return
+
+        claims = entity.get("claims", {}) or {}
+
+        is_person = False
+        for c in claims.get("P31", []) or []:
+            try:
+                if c["mainsnak"]["datavalue"]["value"]["id"] == "Q5":
+                    is_person = True
+                    break
+            except Exception:
+                logging.exception("Unexpected error")
+                continue
+
+        if not is_person:
+            self.is_extracting = False
+            self.error_message = "Este artigo não é biográfico (não corresponde a uma pessoa no Wikidata). Selecione outro artigo."
+            self._add_history(search_term, title, "Não-biográfico")
+            return
+
+        name = _label_of(entity) or title
+        birth_date = _claim_time(claims, "P569")
+        death_date = _claim_time(claims, "P570")
+        birth_qid = _claim_qid(claims, "P19")
+        death_qid = _claim_qid(claims, "P20")
+        nat_qid = _claim_qid(claims, "P27")
+
+        ref_qids = [q for q in [birth_qid, death_qid, nat_qid] if q]
+        ref_entities = (
+            await asyncio.to_thread(_wd_entities, ref_qids) if ref_qids else {}
+        )
+
+        birth_place = (
+            _label_of(ref_entities.get(birth_qid)) if birth_qid else ""
+        )
+        death_place = (
+            _label_of(ref_entities.get(death_qid)) if death_qid else ""
+        )
+        nationality = _label_of(ref_entities.get(nat_qid)) if nat_qid else ""
+
+        birth_coords = (
+            _coords_of(ref_entities.get(birth_qid)) if birth_qid else None
+        )
+        death_coords = (
+            _coords_of(ref_entities.get(death_qid)) if death_qid else None
+        )
+
+        if birth_qid and birth_coords is None:
+            birth_coords = await _fallback_coords(birth_qid, ref_entities)
+        if death_qid and death_coords is None:
+            death_coords = await _fallback_coords(death_qid, ref_entities)
+
+        country_qids = []
+        for q in [birth_qid, death_qid]:
+            if q and q in ref_entities:
+                cq = _claim_qid(ref_entities[q].get("claims", {}) or {}, "P17")
+                if cq and cq not in ref_entities:
+                    country_qids.append(cq)
+        if country_qids:
+            extra = await asyncio.to_thread(_wd_entities, country_qids)
+            ref_entities.update(extra)
+
+        birth_place_full = _full_place(birth_qid, birth_place, ref_entities)
+        death_place_full = _full_place(death_qid, death_place, ref_entities)
+
+        fields = [
+            bool(name),
+            bool(nationality),
+            bool(birth_date),
+            bool(death_date),
+            bool(birth_place_full),
+            bool(death_place_full),
+        ]
+        completeness = int(round(sum(fields) / len(fields) * 100))
+
+        missing = []
+        if not nationality:
+            missing.append("nacionalidade")
+        if not birth_date:
+            missing.append("data de nascimento")
+        if not death_date:
+            missing.append("data de falecimento")
+        if not birth_place_full:
+            missing.append("local de nascimento")
+        if not death_place_full:
+            missing.append("local de falecimento")
+
+        image_url = preview.get("image_url", "") or ""
+        record: PersonRecord = {
+            "id": qid,
+            "name": name,
+            "nationality": nationality or "—",
+            "birth_date": birth_date or "—",
+            "death_date": death_date or "—",
+            "birth_place": birth_place_full or "—",
+            "death_place": death_place_full or "—",
+            "birth_lat": birth_coords[0] if birth_coords else 0.0,
+            "birth_lng": birth_coords[1] if birth_coords else 0.0,
+            "death_lat": death_coords[0] if death_coords else 0.0,
+            "death_lng": death_coords[1] if death_coords else 0.0,
+            "article_url": url,
+            "summary": extract_text or "—",
+            "searched_at": datetime.now().strftime("%Y-%m-%d %H:%M"),
+            "completeness": completeness,
+            "image_url": image_url,
+        }
+
+        self.is_extracting = False
+        existing_ids = {p["id"] for p in self.people}
+        persist_ok = True
+        try:
+            await asyncio.to_thread(save_person_db, record)
+        except Exception as e:
+            logging.exception(f"Erro ao persistir pessoa: {e}")
+            persist_ok = False
+            self.error_message = "Não foi possível salvar este registro localmente. Os dados aparecerão somente nesta sessão."
+        is_update = qid in existing_ids
+        if is_update:
+            self.people = [record if p["id"] == qid else p for p in self.people]
+            self.info_message = f"“{name}” já estava na composição — registro atualizado com dados frescos e salvo localmente."
+        else:
+            self.people = [record, *self.people]
+            if missing:
+                self.info_message = f"“{name}” adicionado(a) e salvo(a) localmente. Campos ausentes: {', '.join(missing)}."
+            else:
+                self.info_message = f"“{name}” adicionado(a) com dados biográficos completos e salvo(a) localmente."
+        status = (
+            "Sucesso" if completeness == 100 else f"Parcial ({completeness}%)"
+        )
+        await self._persist_history(search_term, name, status)
+        self.has_preview = False
+        self.last_persist_action = "atualizado" if is_update else "salvo"
+        if persist_ok:
+            yield rx.toast(
+                title=(
+                    "Registro atualizado" if is_update else "Registro salvo"
+                ),
+                description=(
+                    f"“{name}” {'foi atualizado' if is_update else 'foi salvo'} no armazenamento local (completude {completeness}%)."
+                ),
+                position="bottom-right",
+                duration=3500,
+                close_button=True,
+            )
+        else:
+            yield rx.toast(
+                title="Salvo apenas em sessão",
+                description=f"Não foi possível persistir “{name}” localmente. O registro existirá apenas nesta sessão.",
+                position="bottom-right",
+                duration=4500,
+                close_button=True,
+            )
+
+    def _add_history(self, term: str, title: str, status: str):
+        entry: HistoryEntry = {
+            "term": term or "—",
+            "title": title or "—",
+            "timestamp": datetime.now().strftime("%Y-%m-%d %H:%M"),
+            "status": status,
+        }
+        self.history = [entry, *self.history][:50]
+        try:
+            save_history_db(entry)
+        except Exception as e:
+            logging.exception(f"Erro ao persistir histórico: {e}")
+
+    async def _persist_history(self, term: str, title: str, status: str):
+        entry: HistoryEntry = {
+            "term": term or "—",
+            "title": title or "—",
+            "timestamp": datetime.now().strftime("%Y-%m-%d %H:%M"),
+            "status": status,
+        }
+        self.history = [entry, *self.history][:50]
+        try:
+            await asyncio.to_thread(save_history_db, entry)
+        except Exception as e:
+            logging.exception(f"Erro ao persistir histórico: {e}")
+
+    @rx.event
+    async def remove_person(self, person_id: str):
+        removed = next((p for p in self.people if p["id"] == person_id), None)
+        self.people = [p for p in self.people if p["id"] != person_id]
+        if self.selected_person_id == person_id:
+            self.selected_person_id = ""
+        name = removed["name"] if removed else "Registro"
+        try:
+            await asyncio.to_thread(delete_person_db, person_id)
+            self.info_message = (
+                "Registro removido da composição e do armazenamento local."
+            )
+            self.last_persist_action = "removido"
+            yield rx.toast(
+                title="Registro removido",
+                description=f"“{name}” foi excluído do armazenamento local.",
+                position="bottom-right",
+                duration=3500,
+                close_button=True,
+            )
+        except Exception as e:
+            logging.exception(f"Erro ao remover pessoa: {e}")
+            self.error_message = "Falha ao remover do armazenamento local; o registro foi removido apenas desta sessão."
+            yield rx.toast(
+                title="Remoção parcial",
+                description=f"“{name}” foi removido(a) da sessão, mas permanece no armazenamento local.",
+                position="bottom-right",
+                duration=4500,
+                close_button=True,
+            )
+
+    @rx.event
+    async def clear_history(self):
+        previous_count = len(self.history)
+        self.history = []
+        try:
+            await asyncio.to_thread(clear_history_db)
+            self.info_message = (
+                "Histórico de pesquisa limpo (também no armazenamento local)."
+            )
+            self.last_persist_action = "histórico limpo"
+            yield rx.toast(
+                title="Histórico limpo",
+                description=f"{previous_count} entrada(s) removida(s) do armazenamento local.",
+                position="bottom-right",
+                duration=3500,
+                close_button=True,
+            )
+        except Exception as e:
+            logging.exception(f"Erro ao limpar histórico: {e}")
+            self.error_message = (
+                "Falha ao limpar histórico no armazenamento local."
+            )
+            yield rx.toast(
+                title="Falha ao limpar histórico",
+                description="Não foi possível limpar o histórico no armazenamento local.",
+                position="bottom-right",
+                duration=4500,
+                close_button=True,
+            )
+
+    @rx.event
+    async def refresh_from_storage(self):
+        try:
+            self.people = await asyncio.to_thread(load_people_db)
+            self.history = await asyncio.to_thread(load_history_db)
+            self.info_message = "Dados recarregados do armazenamento local."
+            self.last_persist_action = "recarregado"
+            yield rx.toast(
+                title="Dados sincronizados",
+                description=f"{len(self.people)} pessoa(s) e {len(self.history)} busca(s) recarregados do armazenamento local.",
+                position="bottom-right",
+                duration=3500,
+                close_button=True,
+            )
+        except Exception as e:
+            logging.exception(f"Erro ao recarregar dados: {e}")
+            self.error_message = "Falha ao recarregar do armazenamento local."
+            yield rx.toast(
+                title="Falha ao sincronizar",
+                description="Não foi possível recarregar do armazenamento local.",
+                position="bottom-right",
+                duration=4500,
+                close_button=True,
+            )
+
+    @rx.event
+    def export_csv_with_feedback(self):
+        yield rx.toast(
+            title="Exportação iniciada",
+            description=f"{len(self.people)} registro(s) persistido(s) sendo exportados como CSV.",
+            position="bottom-right",
+            duration=2500,
+            close_button=True,
+        )
+        yield ResearchState.export_csv

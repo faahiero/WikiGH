@@ -1,0 +1,4 @@
+reflex[db]==0.9.2
+pypdf
+reflex-enterprise
+requests
