@@ -4,6 +4,21 @@ from reflex_enterprise.components.map.types import latlng
 from app.states.research_state import ResearchState
 
 
+def connection_polyline(conn) -> rx.Component:
+    return rxe.map.polyline(
+        positions=[
+            latlng(lat=conn["birth_lat"], lng=conn["birth_lng"]),
+            latlng(lat=conn["death_lat"], lng=conn["death_lng"]),
+        ],
+        path_options=rxe.map.path_options(
+            color=rx.cond(conn["is_selected"], "#2563eb", "#60a5fa"),
+            weight=rx.cond(conn["is_selected"], 3, 2),
+            opacity=rx.cond(conn["is_selected"], 0.9, 0.45),
+            dash_array="6 8",
+        ),
+    )
+
+
 def map_marker(point) -> rx.Component:
     return rxe.map.marker(
         rxe.map.popup(
@@ -261,7 +276,11 @@ def selectable_person_chip(person) -> rx.Component:
             person["name"],
             class_name="text-xs font-medium text-gray-700 truncate",
         ),
-        on_click=lambda: ResearchState.select_person(person["id"]),
+        on_click=rx.cond(
+            ResearchState.selected_person_id == person["id"],
+            ResearchState.select_person(""),
+            ResearchState.select_person(person["id"]),
+        ),
         class_name=rx.cond(
             ResearchState.selected_person_id == person["id"],
             "inline-flex items-center gap-1.5 px-2 py-1 rounded-full bg-blue-600 text-white border border-blue-700 shrink-0",
@@ -271,6 +290,50 @@ def selectable_person_chip(person) -> rx.Component:
                 "inline-flex items-center gap-1.5 px-2 py-1 rounded-full bg-white border border-gray-200 hover:border-blue-300 shrink-0",
             ),
         ),
+    )
+
+
+def focus_banner() -> rx.Component:
+    return rx.cond(
+        ResearchState.is_map_focused,
+        rx.el.div(
+            rx.el.div(
+                rx.icon("focus", class_name="h-3.5 w-3.5 text-blue-600"),
+                rx.el.span(
+                    "Foco ativo: ",
+                    class_name=rx.cond(
+                        ResearchState.dark_mode,
+                        "text-[11px] font-semibold text-gray-300",
+                        "text-[11px] font-semibold text-gray-700",
+                    ),
+                ),
+                rx.el.span(
+                    ResearchState.selected_person["name"],
+                    class_name=rx.cond(
+                        ResearchState.dark_mode,
+                        "text-[11px] font-bold text-blue-300",
+                        "text-[11px] font-bold text-blue-700",
+                    ),
+                ),
+                class_name="flex items-center gap-1.5 min-w-0",
+            ),
+            rx.el.button(
+                rx.icon("x", class_name="h-3 w-3"),
+                rx.el.span("Mostrar todos"),
+                on_click=lambda: ResearchState.select_person(""),
+                class_name=rx.cond(
+                    ResearchState.dark_mode,
+                    "inline-flex items-center gap-1 text-[11px] font-semibold text-blue-300 hover:text-blue-100 px-2 py-1 rounded shrink-0",
+                    "inline-flex items-center gap-1 text-[11px] font-semibold text-blue-700 hover:text-blue-900 px-2 py-1 rounded shrink-0",
+                ),
+            ),
+            class_name=rx.cond(
+                ResearchState.dark_mode,
+                "flex items-center justify-between gap-2 mb-3 px-3 py-2 rounded-lg bg-blue-950/30 border border-blue-900/60",
+                "flex items-center justify-between gap-2 mb-3 px-3 py-2 rounded-lg bg-blue-50/70 border border-blue-200",
+            ),
+        ),
+        rx.fragment(),
     )
 
 
@@ -354,6 +417,7 @@ def map_view() -> rx.Component:
             ),
             rx.fragment(),
         ),
+        focus_banner(),
         rx.cond(
             ResearchState.total_map_points > 0,
             rx.el.div(
@@ -365,6 +429,9 @@ def map_view() -> rx.Component:
                     rxe.map.tile_layer(
                         url="https://{s}.basemaps.cartocdn.com/rastertiles/voyager/{z}/{x}/{y}{r}.png",
                         attribution="&copy; OpenStreetMap &copy; CARTO",
+                    ),
+                    rx.foreach(
+                        ResearchState.map_connections, connection_polyline
                     ),
                     rx.foreach(ResearchState.map_points, map_marker),
                     id="geo-map",

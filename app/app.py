@@ -57,7 +57,11 @@ def landing_nav() -> rx.Component:
                 ),
                 rx.el.span(
                     "Wikipedia GeoHist",
-                    class_name="text-xl font-extrabold tracking-tight text-gray-900",
+                    class_name=rx.cond(
+                        ResearchState.dark_mode,
+                        "text-xl font-extrabold tracking-tight text-gray-100",
+                        "text-xl font-extrabold tracking-tight text-gray-900",
+                    ),
                 ),
                 class_name="flex items-center gap-3",
             ),
@@ -65,17 +69,29 @@ def landing_nav() -> rx.Component:
                 rx.el.a(
                     "Início",
                     href="#home",
-                    class_name="text-sm font-semibold text-gray-600 hover:text-blue-600 transition-colors hidden md:inline",
+                    class_name=rx.cond(
+                        ResearchState.dark_mode,
+                        "text-sm font-semibold text-gray-300 hover:text-blue-400 transition-colors hidden md:inline",
+                        "text-sm font-semibold text-gray-600 hover:text-blue-600 transition-colors hidden md:inline",
+                    ),
                 ),
                 rx.el.a(
                     "Funcionalidades",
                     href="#features",
-                    class_name="text-sm font-semibold text-gray-600 hover:text-blue-600 transition-colors hidden md:inline",
+                    class_name=rx.cond(
+                        ResearchState.dark_mode,
+                        "text-sm font-semibold text-gray-300 hover:text-blue-400 transition-colors hidden md:inline",
+                        "text-sm font-semibold text-gray-600 hover:text-blue-600 transition-colors hidden md:inline",
+                    ),
                 ),
                 rx.el.a(
                     "Como Funciona",
                     href="#workflow",
-                    class_name="text-sm font-semibold text-gray-600 hover:text-blue-600 transition-colors hidden md:inline",
+                    class_name=rx.cond(
+                        ResearchState.dark_mode,
+                        "text-sm font-semibold text-gray-300 hover:text-blue-400 transition-colors hidden md:inline",
+                        "text-sm font-semibold text-gray-600 hover:text-blue-600 transition-colors hidden md:inline",
+                    ),
                 ),
                 rx.el.button(
                     "Entrar",
@@ -83,7 +99,11 @@ def landing_nav() -> rx.Component:
                         AuthState.set_auth_mode("login"),
                         ResearchState.enter_app,
                     ],
-                    class_name="text-sm font-semibold text-gray-700 hover:text-blue-700 px-4 py-2 rounded-lg transition-all",
+                    class_name=rx.cond(
+                        ResearchState.dark_mode,
+                        "text-sm font-semibold text-gray-200 hover:text-blue-400 px-4 py-2 rounded-lg transition-all",
+                        "text-sm font-semibold text-gray-700 hover:text-blue-700 px-4 py-2 rounded-lg transition-all",
+                    ),
                 ),
                 rx.el.button(
                     "Acessar Plataforma",
@@ -94,7 +114,11 @@ def landing_nav() -> rx.Component:
             ),
             class_name="max-w-7xl mx-auto flex items-center justify-between px-6 h-16",
         ),
-        class_name="border-b border-gray-200 bg-white/80 backdrop-blur-md sticky top-0 z-50 w-full",
+        class_name=rx.cond(
+            ResearchState.dark_mode,
+            "border-b border-gray-800 bg-gray-950/80 backdrop-blur-md sticky top-0 z-50 w-full",
+            "border-b border-gray-200 bg-white/80 backdrop-blur-md sticky top-0 z-50 w-full",
+        ),
     )
 
 
@@ -104,15 +128,27 @@ def landing_hero() -> rx.Component:
             rx.el.div(
                 rx.el.span(
                     "Exploração Histórica e Geográfica",
-                    class_name="inline-flex items-center gap-1.5 px-3 py-1 rounded-full bg-blue-50 text-blue-700 border border-blue-100 text-xs font-semibold mb-6",
+                    class_name=rx.cond(
+                        ResearchState.dark_mode,
+                        "inline-flex items-center gap-1.5 px-3 py-1 rounded-full bg-blue-950/40 text-blue-300 border border-blue-900 text-xs font-semibold mb-6",
+                        "inline-flex items-center gap-1.5 px-3 py-1 rounded-full bg-blue-50 text-blue-700 border border-blue-100 text-xs font-semibold mb-6",
+                    ),
                 ),
                 rx.el.h1(
                     "Descubra as conexões geográficas de biografias históricas",
-                    class_name="text-4xl sm:text-5xl lg:text-6xl font-extrabold text-gray-900 tracking-tight leading-none mb-6",
+                    class_name=rx.cond(
+                        ResearchState.dark_mode,
+                        "text-4xl sm:text-5xl lg:text-6xl font-extrabold text-gray-100 tracking-tight leading-none mb-6",
+                        "text-4xl sm:text-5xl lg:text-6xl font-extrabold text-gray-900 tracking-tight leading-none mb-6",
+                    ),
                 ),
                 rx.el.p(
                     "Componha, analise e mapeie trajetórias de vida diretamente da Wikipédia em português. Transforme biografias complexas em mapas interativos e linhas do tempo estruturadas.",
-                    class_name="text-lg text-gray-600 max-w-2xl mx-auto mb-10 leading-relaxed",
+                    class_name=rx.cond(
+                        ResearchState.dark_mode,
+                        "text-lg text-gray-300 max-w-2xl mx-auto mb-10 leading-relaxed",
+                        "text-lg text-gray-600 max-w-2xl mx-auto mb-10 leading-relaxed",
+                    ),
                 ),
                 rx.el.div(
                     rx.el.button(
@@ -123,7 +159,11 @@ def landing_hero() -> rx.Component:
                     rx.el.a(
                         "Saber mais",
                         href="#features",
-                        class_name="inline-flex items-center gap-1 text-base font-semibold text-gray-700 hover:text-gray-900 px-6 py-3 rounded-lg hover:bg-gray-100 transition-all",
+                        class_name=rx.cond(
+                            ResearchState.dark_mode,
+                            "inline-flex items-center gap-1 text-base font-semibold text-gray-200 hover:text-white px-6 py-3 rounded-lg hover:bg-gray-800 transition-all",
+                            "inline-flex items-center gap-1 text-base font-semibold text-gray-700 hover:text-gray-900 px-6 py-3 rounded-lg hover:bg-gray-100 transition-all",
+                        ),
                     ),
                     class_name="flex flex-col sm:flex-row gap-4 justify-center",
                 ),
@@ -132,7 +172,11 @@ def landing_hero() -> rx.Component:
             class_name="py-20 md:py-28 px-6",
         ),
         id="home",
-        class_name="bg-gradient-to-b from-blue-50/50 via-white to-white border-b border-gray-100",
+        class_name=rx.cond(
+            ResearchState.dark_mode,
+            "bg-gradient-to-b from-blue-950/30 via-gray-950 to-gray-950 border-b border-gray-800",
+            "bg-gradient-to-b from-blue-50/50 via-white to-white border-b border-gray-100",
+        ),
     )
 
 
@@ -140,13 +184,33 @@ def feature_card(icon: str, title: str, description: str) -> rx.Component:
     return rx.el.div(
         rx.el.div(
             rx.icon(icon, class_name="h-6 w-6 text-blue-600"),
-            class_name="h-12 w-12 rounded-xl bg-blue-50 flex items-center justify-center mb-5",
+            class_name=rx.cond(
+                ResearchState.dark_mode,
+                "h-12 w-12 rounded-xl bg-blue-950/40 flex items-center justify-center mb-5",
+                "h-12 w-12 rounded-xl bg-blue-50 flex items-center justify-center mb-5",
+            ),
         ),
-        rx.el.h3(title, class_name="text-lg font-bold text-gray-900 mb-2"),
+        rx.el.h3(
+            title,
+            class_name=rx.cond(
+                ResearchState.dark_mode,
+                "text-lg font-bold text-gray-100 mb-2",
+                "text-lg font-bold text-gray-900 mb-2",
+            ),
+        ),
         rx.el.p(
-            description, class_name="text-sm text-gray-600 leading-relaxed"
+            description,
+            class_name=rx.cond(
+                ResearchState.dark_mode,
+                "text-sm text-gray-400 leading-relaxed",
+                "text-sm text-gray-600 leading-relaxed",
+            ),
         ),
-        class_name="p-6 bg-white border border-gray-200 rounded-xl shadow-sm hover:border-blue-300 hover:shadow-md transition-all",
+        class_name=rx.cond(
+            ResearchState.dark_mode,
+            "p-6 bg-gray-900 border border-gray-800 rounded-xl hover:border-blue-800 transition-all",
+            "p-6 bg-white border border-gray-200 rounded-xl shadow-sm hover:border-blue-300 hover:shadow-md transition-all",
+        ),
     )
 
 
@@ -156,15 +220,27 @@ def landing_features() -> rx.Component:
             rx.el.div(
                 rx.el.span(
                     "Recursos Poderosos",
-                    class_name="text-xs font-bold uppercase tracking-wider text-blue-600",
+                    class_name=rx.cond(
+                        ResearchState.dark_mode,
+                        "text-xs font-bold uppercase tracking-wider text-blue-400",
+                        "text-xs font-bold uppercase tracking-wider text-blue-600",
+                    ),
                 ),
                 rx.el.h2(
                     "Tudo o que você precisa para analisar biografias",
-                    class_name="text-3xl font-bold text-gray-900 mt-2 mb-4",
+                    class_name=rx.cond(
+                        ResearchState.dark_mode,
+                        "text-3xl font-bold text-gray-100 mt-2 mb-4",
+                        "text-3xl font-bold text-gray-900 mt-2 mb-4",
+                    ),
                 ),
                 rx.el.p(
                     "Nossas ferramentas de extração transformam texto não-estruturado em dados limpos e interativos.",
-                    class_name="text-sm text-gray-500 max-w-xl mx-auto",
+                    class_name=rx.cond(
+                        ResearchState.dark_mode,
+                        "text-sm text-gray-400 max-w-xl mx-auto",
+                        "text-sm text-gray-500 max-w-xl mx-auto",
+                    ),
                 ),
                 class_name="text-center mb-16",
             ),
@@ -213,11 +289,27 @@ def workflow_step(step: str, title: str, description: str) -> rx.Component:
             step,
             class_name="h-10 w-10 rounded-full bg-blue-600 text-white font-bold flex items-center justify-center text-sm shadow-md mb-4",
         ),
-        rx.el.h3(title, class_name="text-lg font-bold text-gray-900 mb-2"),
-        rx.el.p(
-            description, class_name="text-sm text-gray-600 leading-relaxed"
+        rx.el.h3(
+            title,
+            class_name=rx.cond(
+                ResearchState.dark_mode,
+                "text-lg font-bold text-gray-100 mb-2",
+                "text-lg font-bold text-gray-900 mb-2",
+            ),
         ),
-        class_name="flex flex-col items-start p-6 bg-gray-50 rounded-xl border border-gray-100 relative",
+        rx.el.p(
+            description,
+            class_name=rx.cond(
+                ResearchState.dark_mode,
+                "text-sm text-gray-400 leading-relaxed",
+                "text-sm text-gray-600 leading-relaxed",
+            ),
+        ),
+        class_name=rx.cond(
+            ResearchState.dark_mode,
+            "flex flex-col items-start p-6 bg-gray-900 rounded-xl border border-gray-800 relative",
+            "flex flex-col items-start p-6 bg-gray-50 rounded-xl border border-gray-100 relative",
+        ),
     )
 
 
@@ -227,15 +319,27 @@ def landing_workflow() -> rx.Component:
             rx.el.div(
                 rx.el.span(
                     "Como Funciona",
-                    class_name="text-xs font-bold uppercase tracking-wider text-blue-600",
+                    class_name=rx.cond(
+                        ResearchState.dark_mode,
+                        "text-xs font-bold uppercase tracking-wider text-blue-400",
+                        "text-xs font-bold uppercase tracking-wider text-blue-600",
+                    ),
                 ),
                 rx.el.h2(
                     "Como usar o Wikipédia GeoHist",
-                    class_name="text-3xl font-bold text-gray-900 mt-2 mb-4",
+                    class_name=rx.cond(
+                        ResearchState.dark_mode,
+                        "text-3xl font-bold text-gray-100 mt-2 mb-4",
+                        "text-3xl font-bold text-gray-900 mt-2 mb-4",
+                    ),
                 ),
                 rx.el.p(
                     "Siga estes três passos simples para iniciar sua primeira análise estruturada.",
-                    class_name="text-sm text-gray-500 max-w-xl mx-auto",
+                    class_name=rx.cond(
+                        ResearchState.dark_mode,
+                        "text-sm text-gray-400 max-w-xl mx-auto",
+                        "text-sm text-gray-500 max-w-xl mx-auto",
+                    ),
                 ),
                 class_name="text-center mb-16",
             ),
@@ -260,7 +364,11 @@ def landing_workflow() -> rx.Component:
             class_name="max-w-7xl mx-auto px-6 py-20",
         ),
         id="workflow",
-        class_name="border-t border-b border-gray-100 bg-white",
+        class_name=rx.cond(
+            ResearchState.dark_mode,
+            "border-t border-b border-gray-800 bg-gray-950",
+            "border-t border-b border-gray-100 bg-white",
+        ),
     )
 
 
@@ -300,19 +408,35 @@ def landing_footer() -> rx.Component:
                     ),
                     rx.el.span(
                         "Wikipedia GeoHist",
-                        class_name="text-sm font-bold text-gray-900",
+                        class_name=rx.cond(
+                            ResearchState.dark_mode,
+                            "text-sm font-bold text-gray-100",
+                            "text-sm font-bold text-gray-900",
+                        ),
                     ),
                     class_name="flex items-center gap-2",
                 ),
                 rx.el.p(
                     "© 2025 Wikipedia GeoHist. Desenvolvido para fins de pesquisa educacional e histórica com dados abertos.",
-                    class_name="text-xs text-gray-400",
+                    class_name=rx.cond(
+                        ResearchState.dark_mode,
+                        "text-xs text-gray-500",
+                        "text-xs text-gray-400",
+                    ),
                 ),
-                class_name="flex flex-col sm:flex-row items-center justify-between gap-4 border-t border-gray-200 pt-8",
+                class_name=rx.cond(
+                    ResearchState.dark_mode,
+                    "flex flex-col sm:flex-row items-center justify-between gap-4 border-t border-gray-800 pt-8",
+                    "flex flex-col sm:flex-row items-center justify-between gap-4 border-t border-gray-200 pt-8",
+                ),
             ),
             class_name="max-w-7xl mx-auto px-6 py-12",
         ),
-        class_name="bg-gray-50 border-t border-gray-100 w-full",
+        class_name=rx.cond(
+            ResearchState.dark_mode,
+            "bg-gray-950 border-t border-gray-800 w-full",
+            "bg-gray-50 border-t border-gray-100 w-full",
+        ),
     )
 
 
@@ -324,7 +448,12 @@ def public_landing_view() -> rx.Component:
         landing_workflow(),
         landing_cta(),
         landing_footer(),
-        class_name="bg-gray-50 text-gray-900 w-full font-['Inter']",
+        dark_mode_toggle_floating(),
+        class_name=rx.cond(
+            ResearchState.dark_mode,
+            "bg-gray-950 text-gray-100 w-full font-['Inter'] relative",
+            "bg-gray-50 text-gray-900 w-full font-['Inter'] relative",
+        ),
     )
 
 

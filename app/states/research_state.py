@@ -40,10 +40,12 @@ def init_db():
                 summary TEXT,
                 searched_at TEXT,
                 completeness INTEGER,
-                image_url TEXT DEFAULT ''
+                image_url TEXT DEFAULT '',
+                article_title TEXT DEFAULT '',
+                is_living INTEGER DEFAULT 0
             )
         """)
-        # Safe migration: add image_url column if missing on older DBs
+        # Safe migration: add new columns if missing on older DBs
         cursor.execute("PRAGMA table_info(people)")
         cols = [row[1] for row in cursor.fetchall()]
         if "image_url" not in cols:
@@ -53,6 +55,20 @@ def init_db():
                 )
             except Exception as e:
                 logging.exception(f"Erro ao migrar coluna image_url: {e}")
+        if "article_title" not in cols:
+            try:
+                cursor.execute(
+                    "ALTER TABLE people ADD COLUMN article_title TEXT DEFAULT ''"
+                )
+            except Exception as e:
+                logging.exception(f"Erro ao migrar coluna article_title: {e}")
+        if "is_living" not in cols:
+            try:
+                cursor.execute(
+                    "ALTER TABLE people ADD COLUMN is_living INTEGER DEFAULT 0"
+                )
+            except Exception as e:
+                logging.exception(f"Erro ao migrar coluna is_living: {e}")
         cursor.execute("""
             CREATE TABLE IF NOT EXISTS history (
                 id INTEGER PRIMARY KEY AUTOINCREMENT,
@@ -76,8 +92,8 @@ def save_person_db(p: dict):
             """
             INSERT OR REPLACE INTO people (
                 id, name, nationality, birth_date, death_date, birth_place, death_place,
-                birth_lat, birth_lng, death_lat, death_lng, article_url, summary, searched_at, completeness, image_url
-            ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+                birth_lat, birth_lng, death_lat, death_lng, article_url, summary, searched_at, completeness, image_url, article_title, is_living
+            ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
         """,
             (
                 p["id"],
@@ -96,6 +112,8 @@ def save_person_db(p: dict):
                 p["searched_at"],
                 p["completeness"],
                 p.get("image_url", ""),
+                p.get("article_title", ""),
+                1 if p.get("is_living", False) else 0,
             ),
         )
         conn.commit()
@@ -128,6 +146,12 @@ def load_people_db() -> list:
             image_url = ""
             if "image_url" in col_names:
                 image_url = r["image_url"] or ""
+            article_title = ""
+            if "article_title" in col_names:
+                article_title = r["article_title"] or ""
+            is_living = False
+            if "is_living" in col_names:
+                is_living = bool(r["is_living"])
             out.append(
                 {
                     "id": r["id"],
@@ -146,6 +170,8 @@ def load_people_db() -> list:
                     "searched_at": r["searched_at"],
                     "completeness": int(r["completeness"]),
                     "image_url": image_url,
+                    "article_title": article_title,
+                    "is_living": is_living,
                 }
             )
         conn.close()
@@ -232,6 +258,8 @@ class PersonRecord(TypedDict):
     searched_at: str
     completeness: int
     image_url: str
+    article_title: str
+    is_living: bool
 
 
 class HistoryEntry(TypedDict):
@@ -472,6 +500,16 @@ class MapPoint(TypedDict):
     image_url: str
 
 
+class MapConnection(TypedDict):
+    id: str
+    name: str
+    birth_lat: float
+    birth_lng: float
+    death_lat: float
+    death_lng: float
+    is_selected: bool
+
+
 class TimelineEvent(TypedDict):
     id: str
     person_id: str
@@ -587,34 +625,101 @@ class ResearchState(rx.State):
     @rx.var
     def map_points(self) -> list[MapPoint]:
         points: list[MapPoint] = []
-        for p in self.people:
-            if p["birth_lat"] != 0.0 or p["birth_lng"] != 0.0:
+        # If a person is focused, show only their markers
+        focus_id = self.selected_person_id
+        people_iter = self.people
+        if focus_id:
+            people_iter = [p for p in self.people if p["id"] == focus_id]
+        # Offset constant ~ small (~700m on equator) to disambiguate overlapping points
+        offset = 0.0065
+        for p in people_iter:
+            has_birth = p["birth_lat"] != 0.0 or p["birth_lng"] != 0.0
+            has_death = p["death_lat"] != 0.0 or p["death_lng"] != 0.0
+            # Detect near-overlap
+            overlap = False
+            if has_birth and has_death:
+                if (
+                    abs(p["birth_lat"] - p["death_lat"]) < 0.001
+                    and abs(p["birth_lng"] - p["death_lng"]) < 0.001
+                ):
+                    overlap = True
+            if has_birth:
+                blat = p["birth_lat"]
+                blng = p["birth_lng"]
+                if overlap:
+                    blat = blat + offset
+                    blng = blng - offset
                 points.append(
                     {
                         "id": f"{p['id']}_b",
                         "name": p["name"],
                         "place": p["birth_place"],
                         "date": p["birth_date"],
-                        "lat": p["birth_lat"],
-                        "lng": p["birth_lng"],
+                        "lat": blat,
+                        "lng": blng,
                         "kind": "Nascimento",
                         "image_url": p.get("image_url", ""),
                     }
                 )
-            if p["death_lat"] != 0.0 or p["death_lng"] != 0.0:
+            if has_death:
+                dlat = p["death_lat"]
+                dlng = p["death_lng"]
+                if overlap:
+                    dlat = dlat - offset
+                    dlng = dlng + offset
                 points.append(
                     {
                         "id": f"{p['id']}_d",
                         "name": p["name"],
                         "place": p["death_place"],
                         "date": p["death_date"],
-                        "lat": p["death_lat"],
-                        "lng": p["death_lng"],
+                        "lat": dlat,
+                        "lng": dlng,
                         "kind": "Falecimento",
                         "image_url": p.get("image_url", ""),
                     }
                 )
         return points
+
+    @rx.var
+    def map_connections(self) -> list[MapConnection]:
+        focus_id = self.selected_person_id
+        people_iter = self.people
+        if focus_id:
+            people_iter = [p for p in self.people if p["id"] == focus_id]
+        connections: list[MapConnection] = []
+        offset = 0.0065
+        for p in people_iter:
+            has_birth = p["birth_lat"] != 0.0 or p["birth_lng"] != 0.0
+            has_death = p["death_lat"] != 0.0 or p["death_lng"] != 0.0
+            if not (has_birth and has_death):
+                continue
+            blat = p["birth_lat"]
+            blng = p["birth_lng"]
+            dlat = p["death_lat"]
+            dlng = p["death_lng"]
+            overlap = abs(blat - dlat) < 0.001 and abs(blng - dlng) < 0.001
+            if overlap:
+                blat = blat + offset
+                blng = blng - offset
+                dlat = dlat - offset
+                dlng = dlng + offset
+            connections.append(
+                {
+                    "id": p["id"],
+                    "name": p["name"],
+                    "birth_lat": blat,
+                    "birth_lng": blng,
+                    "death_lat": dlat,
+                    "death_lng": dlng,
+                    "is_selected": p["id"] == focus_id,
+                }
+            )
+        return connections
+
+    @rx.var
+    def is_map_focused(self) -> bool:
+        return self.selected_person_id != ""
 
     @rx.var
     def total_map_points(self) -> int:
@@ -746,6 +851,14 @@ class ResearchState(rx.State):
             label = f"Século {c}" if c > 0 else "Antigo"
             out.append({"label": label, "count": v})
         return out
+
+    @rx.var
+    def total_living(self) -> int:
+        return sum(1 for p in self.people if p.get("is_living"))
+
+    @rx.var
+    def total_deceased(self) -> int:
+        return sum(1 for p in self.people if not p.get("is_living"))
 
     @rx.var
     def completeness_buckets(self) -> list[DistRow]:
@@ -911,15 +1024,16 @@ class ResearchState(rx.State):
             "Falecimento (local)": 0,
         }
         for p in self.people:
+            living = bool(p.get("is_living"))
             if not p["nationality"] or p["nationality"] == "—":
                 counts["Nacionalidade"] += 1
             if not p["birth_date"] or p["birth_date"] == "—":
                 counts["Nascimento (data)"] += 1
-            if not p["death_date"] or p["death_date"] == "—":
+            if not living and (not p["death_date"] or p["death_date"] == "—"):
                 counts["Falecimento (data)"] += 1
             if not p["birth_place"] or p["birth_place"] == "—":
                 counts["Nascimento (local)"] += 1
-            if not p["death_place"] or p["death_place"] == "—":
+            if not living and (not p["death_place"] or p["death_place"] == "—"):
                 counts["Falecimento (local)"] += 1
         return [{"label": k, "count": v} for k, v in counts.items()]
 
@@ -1048,30 +1162,49 @@ class ResearchState(rx.State):
             or q in p["death_place"].lower()
         ]
 
-    @rx.var
-    def csv_data(self) -> str:
-        header = "Nome,Nacionalidade,Nascimento,Local Nasc.,Falecimento,Local Falec.,Completude,URL"
-        lines = [header]
-        for p in self.people:
-            row = ",".join(
-                [
-                    f'"{p["name"]}"',
-                    f'"{p["nationality"]}"',
-                    f'"{p["birth_date"]}"',
-                    f'"{p["birth_place"]}"',
-                    f'"{p["death_date"]}"',
-                    f'"{p["death_place"]}"',
-                    str(p["completeness"]),
-                    f'"{p["article_url"]}"',
-                ]
-            )
-            lines.append(row)
-        return "\n".join(lines)
-
     @rx.event
     def export_csv(self):
+        import csv
+        import io
+
+        buf = io.StringIO()
+        writer = csv.writer(buf, quoting=csv.QUOTE_ALL)
+        writer.writerow(
+            [
+                "Nome",
+                "Titulo do Artigo",
+                "Wikidata ID",
+                "Nacionalidade",
+                "Nascimento",
+                "Local Nascimento",
+                "Falecimento",
+                "Local Falecimento",
+                "Status",
+                "Completude (%)",
+                "URL Wikipedia",
+                "Pesquisado em",
+            ]
+        )
+        for p in self.people:
+            living = bool(p.get("is_living"))
+            writer.writerow(
+                [
+                    p.get("name", ""),
+                    p.get("article_title", "") or p.get("name", ""),
+                    p.get("id", ""),
+                    p.get("nationality", ""),
+                    p.get("birth_date", ""),
+                    p.get("birth_place", ""),
+                    "Vivo(a)" if living else p.get("death_date", ""),
+                    "—" if living else p.get("death_place", ""),
+                    "Vivo(a)" if living else "Falecido(a)",
+                    p.get("completeness", 0),
+                    p.get("article_url", ""),
+                    p.get("searched_at", ""),
+                ]
+            )
         return rx.download(
-            data=ResearchState.csv_data,
+            data=buf.getvalue(),
             filename="geohist_composicao.csv",
         )
 
@@ -1381,6 +1514,7 @@ class ResearchState(rx.State):
         birth_qid = _claim_qid(claims, "P19")
         death_qid = _claim_qid(claims, "P20")
         nat_qid = _claim_qid(claims, "P27")
+        is_living = (not death_date) and (not death_qid)
 
         ref_qids = [q for q in [birth_qid, death_qid, nat_qid] if q]
         ref_entities = (
@@ -1420,14 +1554,22 @@ class ResearchState(rx.State):
         birth_place_full = _full_place(birth_qid, birth_place, ref_entities)
         death_place_full = _full_place(death_qid, death_place, ref_entities)
 
-        fields = [
-            bool(name),
-            bool(nationality),
-            bool(birth_date),
-            bool(death_date),
-            bool(birth_place_full),
-            bool(death_place_full),
-        ]
+        if is_living:
+            fields = [
+                bool(name),
+                bool(nationality),
+                bool(birth_date),
+                bool(birth_place_full),
+            ]
+        else:
+            fields = [
+                bool(name),
+                bool(nationality),
+                bool(birth_date),
+                bool(death_date),
+                bool(birth_place_full),
+                bool(death_place_full),
+            ]
         completeness = int(round(sum(fields) / len(fields) * 100))
 
         missing = []
@@ -1435,22 +1577,23 @@ class ResearchState(rx.State):
             missing.append("nacionalidade")
         if not birth_date:
             missing.append("data de nascimento")
-        if not death_date:
+        if not is_living and not death_date:
             missing.append("data de falecimento")
         if not birth_place_full:
             missing.append("local de nascimento")
-        if not death_place_full:
+        if not is_living and not death_place_full:
             missing.append("local de falecimento")
 
         image_url = preview.get("image_url", "") or ""
+        article_title = preview.get("title", "") or title
         record: PersonRecord = {
             "id": qid,
             "name": name,
             "nationality": nationality or "—",
             "birth_date": birth_date or "—",
-            "death_date": death_date or "—",
+            "death_date": "Vivo(a)" if is_living else (death_date or "—"),
             "birth_place": birth_place_full or "—",
-            "death_place": death_place_full or "—",
+            "death_place": "—" if is_living else (death_place_full or "—"),
             "birth_lat": birth_coords[0] if birth_coords else 0.0,
             "birth_lng": birth_coords[1] if birth_coords else 0.0,
             "death_lat": death_coords[0] if death_coords else 0.0,
@@ -1460,6 +1603,8 @@ class ResearchState(rx.State):
             "searched_at": datetime.now().strftime("%Y-%m-%d %H:%M"),
             "completeness": completeness,
             "image_url": image_url,
+            "article_title": article_title,
+            "is_living": is_living,
         }
 
         self.is_extracting = False

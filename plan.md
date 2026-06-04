@@ -1,17 +1,19 @@
-# Visual Differentiation and Analytics Enrichment Plan
+# Correções de Tema, Dados Biográficos, Exportação e Mapa
 
-## Phase 1: Authentication Reliability and Data Insights Foundation ✅
-- [x] Make local authentication resilient so login and registration always initialize required storage before queries.
-- [x] Add richer computed insights for historical, geographic, completeness, and movement analysis.
-- [x] Preserve existing user flow, public landing, protected dashboard, and current persisted research data.
+## Phase 1: Tema Global, Qualidade dos Dados e Exportação ✅
+- [x] Aplicar modo noturno de forma consistente tanto na página pública quanto na área autenticada.
+- [x] Diferenciar pessoas homônimas usando título/artigo, identificador e contexto biográfico para evitar registros visualmente indistinguíveis.
+- [x] Ajustar a análise de campos ausentes para tratar pessoas vivas sem penalizar ausência de falecimento.
+- [x] Corrigir a exportação para gerar CSV limpo apenas com dados estruturados.
 
-## Phase 2: Distinct Experiences for Research, Map, and Timeline ✅
-- [x] Redesign the research area as a focused curation workspace with differentiated preview, extraction status, and guided suggestions.
-- [x] Redesign the map area as a more immersive cartographic view with compact overlays, filters, and selected-location context.
-- [x] Redesign the timeline area as a more narrative historical view grouped by period with richer event presentation.
+## Phase 2: Experiência Cartográfica Avançada ✅
+- [x] Evitar sobreposição visual entre marcadores de nascimento e falecimento no mesmo local.
+- [x] Fazer o foco rápido filtrar o mapa para exibir apenas a personalidade selecionada.
+- [x] Criar ligação visual elegante entre locais de nascimento e falecimento quando ambos existirem.
+- [x] Preservar legenda, contexto, métricas e experiência responsiva do mapa.
 
-## Phase 3: Enhanced Analytics, Dashboard, and Data Table ✅
-- [x] Enrich analytics with additional visualizations for lifespan, mobility, missing fields, geography, and period concentration.
-- [x] Differentiate the dashboard with insight cards, progress/status blocks, and next-action guidance.
-- [x] Improve the table area with stronger data-workbench cues, advanced summary strips, and export context.
-- [x] Validate authentication, navigation, rendering with empty/populated data, and key state events.
+## Phase 3: Validação dos Fluxos Corrigidos ✅
+- [x] Validar alternância de tema nas áreas pública e autenticada.
+- [x] Validar cálculo de completude/campos ausentes para pessoas vivas e falecidas.
+- [x] Validar exportação CSV limpa e seleção/foco do mapa.
+- [x] Garantir que busca, extração, persistência, análises, tabela e navegação continuem funcionando.

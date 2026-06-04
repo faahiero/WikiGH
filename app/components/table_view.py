@@ -32,21 +32,48 @@ def table_row(person) -> rx.Component:
                     ),
                 ),
                 rx.el.div(
-                    rx.el.p(
-                        person["name"],
-                        class_name=rx.cond(
-                            ResearchState.dark_mode,
-                            "text-sm font-semibold text-gray-100",
-                            "text-sm font-semibold text-gray-900",
+                    rx.el.div(
+                        rx.el.p(
+                            person["name"],
+                            class_name=rx.cond(
+                                ResearchState.dark_mode,
+                                "text-sm font-semibold text-gray-100",
+                                "text-sm font-semibold text-gray-900",
+                            ),
                         ),
+                        rx.cond(
+                            person["is_living"],
+                            rx.el.span(
+                                "Vivo(a)",
+                                class_name=rx.cond(
+                                    ResearchState.dark_mode,
+                                    "text-[9px] font-bold text-emerald-300 bg-emerald-950/40 border border-emerald-900 px-1.5 py-0.5 rounded-full",
+                                    "text-[9px] font-bold text-emerald-700 bg-emerald-50 border border-emerald-100 px-1.5 py-0.5 rounded-full",
+                                ),
+                            ),
+                            rx.fragment(),
+                        ),
+                        class_name="flex items-center gap-1.5",
                     ),
-                    rx.el.p(
-                        person["nationality"],
-                        class_name=rx.cond(
-                            ResearchState.dark_mode,
-                            "text-xs text-gray-400",
-                            "text-xs text-gray-500",
+                    rx.el.div(
+                        rx.el.span(
+                            person["nationality"],
+                            class_name=rx.cond(
+                                ResearchState.dark_mode,
+                                "text-xs text-gray-400",
+                                "text-xs text-gray-500",
+                            ),
                         ),
+                        rx.el.span("•", class_name="text-xs text-gray-400"),
+                        rx.el.span(
+                            person["id"],
+                            class_name=rx.cond(
+                                ResearchState.dark_mode,
+                                "text-[10px] font-mono text-blue-300",
+                                "text-[10px] font-mono text-blue-600",
+                            ),
+                        ),
+                        class_name="flex items-center gap-1",
                     ),
                 ),
                 class_name="flex items-center gap-2",

@@ -35,13 +35,25 @@ def person_card(person) -> rx.Component:
                             "text-sm font-semibold text-gray-900",
                         ),
                     ),
-                    rx.el.p(
-                        person["nationality"],
-                        class_name=rx.cond(
-                            ResearchState.dark_mode,
-                            "text-xs text-gray-400",
-                            "text-xs text-gray-500",
+                    rx.el.div(
+                        rx.el.span(
+                            person["nationality"],
+                            class_name=rx.cond(
+                                ResearchState.dark_mode,
+                                "text-xs text-gray-400",
+                                "text-xs text-gray-500",
+                            ),
                         ),
+                        rx.el.span("•", class_name="text-xs text-gray-400"),
+                        rx.el.span(
+                            person["id"],
+                            class_name=rx.cond(
+                                ResearchState.dark_mode,
+                                "text-[10px] font-mono text-blue-300",
+                                "text-[10px] font-mono text-blue-600",
+                            ),
+                        ),
+                        class_name="flex items-center gap-1.5",
                     ),
                 ),
                 class_name="flex items-center gap-3",
@@ -56,6 +68,45 @@ def person_card(person) -> rx.Component:
                 ),
             ),
             class_name="flex items-start justify-between",
+        ),
+        rx.cond(
+            (person["article_title"] != "")
+            & (person["article_title"] != person["name"]),
+            rx.el.div(
+                rx.icon("file-text", class_name="h-3 w-3 text-gray-400"),
+                rx.el.span(
+                    person["article_title"],
+                    class_name=rx.cond(
+                        ResearchState.dark_mode,
+                        "text-[10px] text-gray-400 italic truncate",
+                        "text-[10px] text-gray-500 italic truncate",
+                    ),
+                ),
+                class_name="flex items-center gap-1 mt-2",
+            ),
+            rx.fragment(),
+        ),
+        rx.cond(
+            person["is_living"],
+            rx.el.span(
+                rx.el.span(
+                    class_name="h-1.5 w-1.5 rounded-full bg-emerald-500 animate-pulse"
+                ),
+                rx.el.span(
+                    "Vivo(a)",
+                    class_name=rx.cond(
+                        ResearchState.dark_mode,
+                        "text-[10px] font-bold text-emerald-300",
+                        "text-[10px] font-bold text-emerald-700",
+                    ),
+                ),
+                class_name=rx.cond(
+                    ResearchState.dark_mode,
+                    "inline-flex items-center gap-1 px-2 py-0.5 rounded-full bg-emerald-950/40 border border-emerald-900 mt-2 w-fit",
+                    "inline-flex items-center gap-1 px-2 py-0.5 rounded-full bg-emerald-50 border border-emerald-100 mt-2 w-fit",
+                ),
+            ),
+            rx.fragment(),
         ),
         rx.el.p(
             person["summary"],
