@@ -368,13 +368,19 @@ def recent_search_row(entry) -> rx.Component:
                 ),
                 rx.cond(
                     entry["short_id"] != "",
-                    rx.el.span(
+                    rx.el.a(
                         entry["short_id"],
-                        title=f"Wikidata: {entry['short_id']}",
+                        rx.icon(
+                            "external-link",
+                            class_name="h-2 w-2 inline-block ml-0.5",
+                        ),
+                        href="https://www.wikidata.org/wiki/" + entry["qid"],
+                        target="_blank",
+                        title=f"Abrir {entry['qid']} no Wikidata",
                         class_name=rx.cond(
                             ResearchState.dark_mode,
-                            "inline-block text-[9px] font-mono text-blue-300 bg-blue-950/40 border border-blue-900 px-1.5 py-0.5 rounded mt-0.5",
-                            "inline-block text-[9px] font-mono text-blue-700 bg-blue-50 border border-blue-100 px-1.5 py-0.5 rounded mt-0.5",
+                            "inline-flex items-center text-[9px] font-mono text-blue-300 bg-blue-950/40 border border-blue-900 hover:border-blue-700 px-1.5 py-0.5 rounded mt-0.5",
+                            "inline-flex items-center text-[9px] font-mono text-blue-700 bg-blue-50 border border-blue-100 hover:border-blue-300 px-1.5 py-0.5 rounded mt-0.5",
                         ),
                     ),
                     rx.fragment(),

@@ -394,8 +394,6 @@ def _strip_html(text: str) -> str:
             text = text[m.start(1) :].strip()
         else:
             # Strategy 2: drop leading fragment through first suitable separator
-            # (period, exclamation, question, ellipsis, semicolon, colon, dash, comma)
-            # and keep the first coherent uppercase/numeric segment.
             candidates = list(re.finditer(r"(?:[.!?…;:]|\s[-–—]\s|,\s)", text))
             for sep in candidates[:6]:
                 tail = text[sep.end() :].strip()
@@ -419,7 +417,7 @@ def _strip_html(text: str) -> str:
         text = fallback
     if not text:
         return ""
-    # Prefer first coherent sentence (must not itself start as fragment)
+    # Prefer first coherent sentence
     sentences = re.split(r"(?<=[.!?…])\s+(?=[A-ZÁÉÍÓÚÂÊÔÃÕÇÀ0-9])", text)
     first = sentences[0].strip() if sentences else text
     starts_bad = first and (
@@ -429,7 +427,7 @@ def _strip_html(text: str) -> str:
         if first[-1] not in ".!?…":
             first = first + "."
         return first
-    # Fall back to a coherent trimmed excerpt; always end naturally
+    # Fall back to a coherent trimmed excerpt
     excerpt = text
     if len(excerpt) > 240:
         cut = excerpt[:240].rsplit(" ", 1)[0]
@@ -490,7 +488,6 @@ def _format_preview_extract(raw_text: str, max_chars: int = 520) -> str:
             text = text + "."
         return text
     truncated = text[:max_chars]
-    # Look for last sentence terminator followed by space (full sentence end)
     boundaries = [m.end() for m in re.finditer(r"[.!?…](?:\s|$)", truncated)]
     if boundaries:
         last = boundaries[-1]
@@ -531,7 +528,6 @@ def _sort_by_index_helper(p: dict) -> int:
 
 
 def _wiki_search(term: str, limit: int = 8) -> list[dict] | None:
-    # Use generator search to retrieve clean extracts and ordering
     data = _api_get(
         WIKI_API,
         {
@@ -554,12 +550,10 @@ def _wiki_search(term: str, limit: int = 8) -> list[dict] | None:
     pages = data.get("query", {}).get("pages", {}) or {}
     if not pages:
         return []
-    # Sort by search index to preserve relevance order
     items = list(pages.values())
     items.sort(key=_sort_by_index_helper)
     out = []
     for p in items:
-        extract = (p.get("extract") or "").strip()
         out.append(
             {
                 "title": p.get("title", ""),
@@ -749,6 +743,7 @@ def _full_place(place_qid: str, base_label: str, ref_entities: dict) -> str:
 
 class MapPoint(TypedDict):
     id: str
+    qid: str
     name: str
     place: str
     date: str
@@ -761,6 +756,15 @@ class MapPoint(TypedDict):
     is_homonym: bool
     short_id: str
     display_name: str
+    nationality: str
+    article_url: str
+    birth_date_br: str
+    death_date_br: str
+    birth_place: str
+    death_place: str
+    is_living: bool
+    occupation: str
+    summary: str
 
 
 class EnrichedPerson(TypedDict):
@@ -804,6 +808,7 @@ class MapConnection(TypedDict):
 class TimelineEvent(TypedDict):
     id: str
     person_id: str
+    qid: str
     name: str
     year: int
     date: str
@@ -823,6 +828,7 @@ class EnrichedHistoryEntry(TypedDict):
     timestamp_br: str
     status: str
     short_id: str
+    qid: str
     context_label: str
 
 
@@ -969,7 +975,6 @@ def _fetch_dynamic_suggestions(target_count: int = 7) -> list[str]:
                 pp = p.get("pageprops", {}) or {}
                 if "disambiguation" in pp:
                     continue
-                # Require Wikidata link as a quality signal
                 if not pp.get("wikibase_item"):
                     continue
                 seen.add(title)
@@ -978,7 +983,6 @@ def _fetch_dynamic_suggestions(target_count: int = 7) -> list[str]:
             logging.exception(f"Erro ao buscar sugestões em {cat}: {e}")
             continue
     if len(collected) < target_count:
-        # Top up with fallback pool
         fallback = [s for s in SUGGESTION_POOL if s not in seen]
         random.shuffle(fallback)
         collected.extend(fallback[: target_count - len(collected)])
@@ -990,7 +994,7 @@ class ResearchState(rx.State):
     dark_mode: bool = False
     search_query: str = ""
     is_searching: bool = False
-    landing_mode: bool = True  # True if showing public landing page, False if showing protected dashboard
+    landing_mode: bool = True
     dynamic_suggestions: list[str] = [
         "Fernando Pessoa",
         "Machado de Assis",
@@ -1107,25 +1111,315 @@ class ResearchState(rx.State):
         self.table_search = value
 
     def _build_context_label(self, person: dict) -> str:
-        """Build a short, direct disambiguation phrase.
+        max_len = 42
 
-        Priority:
-        1) Wikidata occupation labels (e.g. "política, jurista", "poeta, jornalista").
-        2) Short article title parenthetical (e.g. "(escritor)") if concise.
-        3) Compact phrase derived from Wikidata short description, focused on
-           profession/role keywords; otherwise a tight prefix.
-        4) Nationality as a last resort.
-
-        The visible label is always capped to a short phrase (~48 chars) and
-        normalized (lowercase profession-style, single separators).
-        """
-        max_len = 48
+        profession_tokens = (
+            "escritor",
+            "escritora",
+            "poeta",
+            "poetisa",
+            "romancista",
+            "novelista",
+            "ensaísta",
+            "dramaturgo",
+            "cronista",
+            "contista",
+            "tradutor",
+            "tradutora",
+            "jornalista",
+            "editor",
+            "editora",
+            "historiador",
+            "historiadora",
+            "filósofo",
+            "filósofa",
+            "filosofo",
+            "filosofa",
+            "sociólogo",
+            "socióloga",
+            "antropólogo",
+            "antropóloga",
+            "linguista",
+            "professor",
+            "professora",
+            "pesquisador",
+            "pesquisadora",
+            "cientista",
+            "físico",
+            "física",
+            "fisico",
+            "fisica",
+            "químico",
+            "química",
+            "quimico",
+            "quimica",
+            "biólogo",
+            "bióloga",
+            "biologo",
+            "biologa",
+            "matemático",
+            "matemática",
+            "matematico",
+            "matematica",
+            "astrônomo",
+            "astrônoma",
+            "astronomo",
+            "astronoma",
+            "engenheiro",
+            "engenheira",
+            "arquiteto",
+            "arquiteta",
+            "médico",
+            "médica",
+            "medico",
+            "medica",
+            "advogado",
+            "advogada",
+            "jurista",
+            "magistrado",
+            "magistrada",
+            "juiz",
+            "juíza",
+            "promotor",
+            "promotora",
+            "diplomata",
+            "político",
+            "política",
+            "politico",
+            "politica",
+            "presidente",
+            "ministro",
+            "ministra",
+            "senador",
+            "senadora",
+            "deputado",
+            "deputada",
+            "governador",
+            "governadora",
+            "prefeito",
+            "prefeita",
+            "ativista",
+            "militante",
+            "líder",
+            "lider",
+            "revolucionário",
+            "revolucionária",
+            "rei",
+            "rainha",
+            "imperador",
+            "imperatriz",
+            "príncipe",
+            "princesa",
+            "monarca",
+            "papa",
+            "santo",
+            "santa",
+            "religioso",
+            "religiosa",
+            "padre",
+            "freira",
+            "bispo",
+            "arcebispo",
+            "teólogo",
+            "teóloga",
+            "militar",
+            "general",
+            "coronel",
+            "almirante",
+            "marechal",
+            "soldado",
+            "guerreiro",
+            "guerreira",
+            "explorador",
+            "exploradora",
+            "navegador",
+            "navegadora",
+            "aviador",
+            "aviadora",
+            "astronauta",
+            "inventor",
+            "inventora",
+            "empresário",
+            "empresária",
+            "empresario",
+            "empresaria",
+            "economista",
+            "banqueiro",
+            "banqueira",
+            "industrial",
+            "comerciante",
+            "filantropo",
+            "filantropa",
+            "ator",
+            "atriz",
+            "cineasta",
+            "diretor",
+            "diretora",
+            "produtor",
+            "produtora",
+            "roteirista",
+            "apresentador",
+            "apresentadora",
+            "humorista",
+            "comediante",
+            "músico",
+            "música",
+            "musico",
+            "musica",
+            "cantor",
+            "cantora",
+            "compositor",
+            "compositora",
+            "maestro",
+            "instrumentista",
+            "pianista",
+            "violonista",
+            "guitarrista",
+            "baterista",
+            "rapper",
+            "dj",
+            "pintor",
+            "pintora",
+            "escultor",
+            "escultora",
+            "fotógrafo",
+            "fotógrafa",
+            "fotografo",
+            "fotografa",
+            "ilustrador",
+            "ilustradora",
+            "designer",
+            "estilista",
+            "modelo",
+            "atleta",
+            "futebolista",
+            "jogador",
+            "jogadora",
+            "tenista",
+            "boxeador",
+            "boxeadora",
+            "lutador",
+            "lutadora",
+            "treinador",
+            "treinadora",
+            "técnico",
+            "técnica",
+            "tecnico",
+            "tecnica",
+            "piloto",
+            "nadador",
+            "nadadora",
+            "ginasta",
+            "skatista",
+            "surfista",
+            "programador",
+            "programadora",
+            "desenvolvedor",
+            "desenvolvedora",
+            "hacker",
+            "writer",
+            "poet",
+            "novelist",
+            "essayist",
+            "playwright",
+            "journalist",
+            "editor",
+            "translator",
+            "historian",
+            "philosopher",
+            "sociologist",
+            "anthropologist",
+            "linguist",
+            "professor",
+            "researcher",
+            "scientist",
+            "physicist",
+            "chemist",
+            "biologist",
+            "mathematician",
+            "astronomer",
+            "engineer",
+            "architect",
+            "physician",
+            "doctor",
+            "lawyer",
+            "jurist",
+            "judge",
+            "diplomat",
+            "politician",
+            "president",
+            "minister",
+            "senator",
+            "governor",
+            "activist",
+            "leader",
+            "revolutionary",
+            "king",
+            "queen",
+            "emperor",
+            "empress",
+            "prince",
+            "princess",
+            "monarch",
+            "pope",
+            "saint",
+            "priest",
+            "nun",
+            "bishop",
+            "theologian",
+            "soldier",
+            "general",
+            "admiral",
+            "explorer",
+            "navigator",
+            "aviator",
+            "astronaut",
+            "inventor",
+            "businessman",
+            "businesswoman",
+            "entrepreneur",
+            "economist",
+            "banker",
+            "actor",
+            "actress",
+            "filmmaker",
+            "director",
+            "producer",
+            "screenwriter",
+            "presenter",
+            "comedian",
+            "musician",
+            "singer",
+            "composer",
+            "conductor",
+            "pianist",
+            "guitarist",
+            "drummer",
+            "painter",
+            "sculptor",
+            "photographer",
+            "illustrator",
+            "designer",
+            "model",
+            "athlete",
+            "footballer",
+            "player",
+            "tennis",
+            "boxer",
+            "fighter",
+            "coach",
+            "pilot",
+            "swimmer",
+            "gymnast",
+            "programmer",
+            "developer",
+        )
 
         def _normalize(s: str) -> str:
             s = re.sub(r"\s+", " ", s or "").strip()
-            # Normalize separators: " e " stays, but " / " or "; " become ", "
-            s = re.sub(r"\s*[/;]\s*", ", ", s)
+            s = re.sub(r"\s*[/;|]\s*", ", ", s)
             s = re.sub(r"\s*,\s*", ", ", s)
+            s = re.sub(r"(?:,\s*){2,}", ", ", s)
             s = s.strip(" ,.;:-—–·•")
             return s
 
@@ -1135,7 +1429,17 @@ class ResearchState(rx.State):
                 return ""
             if len(s) <= max_len:
                 return s
-            # Cut at last comma or space within budget for clean phrase
+            parts = [p.strip() for p in s.split(",") if p.strip()]
+            if parts:
+                acc = parts[0]
+                for nxt in parts[1:]:
+                    candidate = f"{acc}, {nxt}"
+                    if len(candidate) <= max_len:
+                        acc = candidate
+                    else:
+                        break
+                if len(acc) <= max_len:
+                    return acc
             cut = s[:max_len]
             for sep in (", ", " e ", " "):
                 idx = cut.rfind(sep)
@@ -1143,45 +1447,85 @@ class ResearchState(rx.State):
                     return cut[:idx].rstrip(" ,.;:-—–·•")
             return cut.rstrip(" ,.;:-—–·•")
 
+        def _looks_like_year(s: str) -> bool:
+            return bool(
+                re.fullmatch(r"\s*-?\d{1,4}\s*[-–—]?\s*-?\d{0,4}\s*", s or "")
+            )
+
+        def _has_profession_token(s: str) -> bool:
+            if not s:
+                return False
+            tokens = re.findall(r"[a-záéíóúâêôãõçà]+", s.lower())
+            for tok in tokens:
+                if tok in profession_tokens:
+                    return True
+            return False
+
+        def _extract_profession_phrase(text: str) -> str:
+            if not text:
+                return ""
+            cleaned = _normalize(
+                re.sub(
+                    r"^(?:é\s+)?(?:um|uma|uns|umas|o|a|os|as|the|an|a)\s+",
+                    "",
+                    text,
+                    flags=re.IGNORECASE,
+                )
+            )
+            spans = re.split(r"[,;\-–—\(\)]", cleaned)
+            best: str = ""
+            for sp in spans:
+                sp_norm = _normalize(sp)
+                if not sp_norm:
+                    continue
+                if _has_profession_token(sp_norm):
+                    trimmed = sp_norm
+                    if len(trimmed) > max_len:
+                        m = re.search(
+                            r"\b("
+                            + "|".join(re.escape(t) for t in profession_tokens)
+                            + r")\b",
+                            trimmed,
+                            re.IGNORECASE,
+                        )
+                        if m:
+                            tail = trimmed[: m.end()]
+                            trimmed = _normalize(tail)
+                    if not best or len(trimmed) < len(best):
+                        best = trimmed
+            if best:
+                return _shorten(best)
+            head = re.split(r"[,;\-–—\(]", cleaned, 1)[0]
+            head = _normalize(head)
+            return _shorten(head) if head else ""
+
         name = (person.get("name") or "").strip()
         title = (person.get("article_title") or "").strip()
+        nationality = _normalize(person.get("nationality") or "")
+        nat_lower = nationality.lower()
 
-        # 1) Wikidata occupation labels — most direct, profession-style.
         occ = _normalize(person.get("occupation") or "")
         if occ:
             return _shorten(occ)
 
-        # 2) Article title parenthetical, if short and informative.
         if title and title.lower() != name.lower():
             m = re.search(r"\(([^)]+)\)", title)
             if m:
                 paren = _normalize(m.group(1))
-                if paren and len(paren) <= max_len:
-                    return paren
+                if paren and not _looks_like_year(paren):
+                    if _has_profession_token(paren) or len(paren) <= 24:
+                        if paren.lower() != nat_lower:
+                            return _shorten(paren)
 
-        # 3) Compact phrase from Wikidata short description.
-        desc = _normalize(person.get("description") or "")
-        if desc:
-            # Drop leading articles/qualifiers commonly seen in pt/en glosses.
-            stripped = re.sub(
-                r"^(?:é\s+)?(?:um|uma|uns|umas|o|a|os|as|the|an|a)\s+",
-                "",
-                desc,
-                flags=re.IGNORECASE,
-            )
-            # Take phrase up to first comma / dash / parenthesis if long.
-            if len(stripped) > max_len:
-                m = re.search(r"[,;\-–—\(]", stripped)
-                if m and m.start() >= 6:
-                    stripped = stripped[: m.start()]
-            stripped = _normalize(stripped)
-            if stripped:
-                return _shorten(stripped)
+        desc_raw = (person.get("description") or "").strip()
+        if desc_raw:
+            phrase = _extract_profession_phrase(desc_raw)
+            if phrase and phrase.lower() != nat_lower:
+                if _has_profession_token(phrase) or len(phrase) <= 28:
+                    return phrase
 
-        # 4) Nationality fallback.
-        nat = _normalize(person.get("nationality") or "")
-        if nat and nat != "—":
-            return _shorten(nat)
+        if nationality and nationality != "—":
+            return _shorten(nationality)
 
         return ""
 
@@ -1235,8 +1579,6 @@ class ResearchState(rx.State):
 
     @rx.var
     def enriched_history(self) -> list[EnrichedHistoryEntry]:
-        # Build lookups including homonym status, so context_label is only
-        # rendered when the matched personality is actually homonymous.
         title_index: dict[str, list[dict]] = {}
         for ep in self.people_enriched:
             t = (
@@ -1270,12 +1612,12 @@ class ResearchState(rx.State):
             title = (h.get("title") or "").strip()
             key_t = title.lower()
             short = ""
+            full_qid = ""
             ctx = ""
             matches = title_index.get(key_t) or name_index.get(key_t) or []
             if len(matches) >= 1:
-                short = _short_qid(matches[0]["qid"])
-                # Only expose disambiguation context when the matched
-                # personality is actually homonymous in the current dataset.
+                full_qid = matches[0]["qid"]
+                short = _short_qid(full_qid)
                 if matches[0].get("is_homonym"):
                     ctx = matches[0]["ctx"]
             out.append(
@@ -1286,6 +1628,7 @@ class ResearchState(rx.State):
                     "timestamp_br": _format_br_date(h.get("timestamp", "")),
                     "status": h.get("status", ""),
                     "short_id": short,
+                    "qid": full_qid,
                     "context_label": ctx,
                 }
             )
@@ -1318,6 +1661,15 @@ class ResearchState(rx.State):
             is_hom = bool(p.get("is_homonym", False))
             short_id = p.get("short_id", "")
             display_name = p.get("display_name", p["name"])
+            occupation_val = p.get("occupation", "") or ""
+            nationality_val = p.get("nationality", "") or ""
+            article_url_val = p.get("article_url", "") or ""
+            summary_val = p.get("summary", "") or ""
+            birth_date_br_val = p.get("birth_date_br", "") or ""
+            death_date_br_val = p.get("death_date_br", "") or ""
+            birth_place_val = p.get("birth_place", "") or ""
+            death_place_val = p.get("death_place", "") or ""
+            is_living_val = bool(p.get("is_living", False))
             if has_birth:
                 blat = p["birth_lat"]
                 blng = p["birth_lng"]
@@ -1327,6 +1679,7 @@ class ResearchState(rx.State):
                 points.append(
                     {
                         "id": f"{p['id']}_b",
+                        "qid": p["id"],
                         "name": p["name"],
                         "place": p["birth_place"],
                         "date": p["birth_date"],
@@ -1339,6 +1692,15 @@ class ResearchState(rx.State):
                         "is_homonym": is_hom,
                         "short_id": short_id,
                         "display_name": display_name,
+                        "nationality": nationality_val,
+                        "article_url": article_url_val,
+                        "birth_date_br": birth_date_br_val,
+                        "death_date_br": death_date_br_val,
+                        "birth_place": birth_place_val,
+                        "death_place": death_place_val,
+                        "is_living": is_living_val,
+                        "occupation": occupation_val,
+                        "summary": summary_val,
                     }
                 )
             if has_death:
@@ -1350,6 +1712,7 @@ class ResearchState(rx.State):
                 points.append(
                     {
                         "id": f"{p['id']}_d",
+                        "qid": p["id"],
                         "name": p["name"],
                         "place": p["death_place"],
                         "date": p["death_date"],
@@ -1362,6 +1725,15 @@ class ResearchState(rx.State):
                         "is_homonym": is_hom,
                         "short_id": short_id,
                         "display_name": display_name,
+                        "nationality": nationality_val,
+                        "article_url": article_url_val,
+                        "birth_date_br": birth_date_br_val,
+                        "death_date_br": death_date_br_val,
+                        "birth_place": birth_place_val,
+                        "death_place": death_place_val,
+                        "is_living": is_living_val,
+                        "occupation": occupation_val,
+                        "summary": summary_val,
                     }
                 )
         return points
@@ -1440,6 +1812,7 @@ class ResearchState(rx.State):
                         {
                             "id": f"{p['id']}_b",
                             "person_id": p["id"],
+                            "qid": p["id"],
                             "name": p["name"],
                             "year": year,
                             "date": p["birth_date"],
@@ -1461,6 +1834,7 @@ class ResearchState(rx.State):
                         {
                             "id": f"{p['id']}_d",
                             "person_id": p["id"],
+                            "qid": p["id"],
                             "name": p["name"],
                             "year": year,
                             "date": p["death_date"],
@@ -1492,6 +1866,7 @@ class ResearchState(rx.State):
             if p["id"] == self.selected_person_id:
                 return {
                     "id": p["id"],
+                    "qid": p["id"],
                     "name": p["name"],
                     "nationality": p["nationality"],
                     "birth_date": p.get("birth_date_br") or p["birth_date"],
@@ -1506,9 +1881,12 @@ class ResearchState(rx.State):
                     "display_name": p.get("display_name", p["name"]),
                     "is_homonym": "true" if p.get("is_homonym") else "false",
                     "article_title": p.get("article_title", ""),
+                    "occupation": p.get("occupation", ""),
+                    "is_living": "true" if p.get("is_living") else "false",
                 }
         return {
             "id": "",
+            "qid": "",
             "name": "",
             "nationality": "",
             "birth_date": "",
@@ -1523,6 +1901,8 @@ class ResearchState(rx.State):
             "display_name": "",
             "is_homonym": "false",
             "article_title": "",
+            "occupation": "",
+            "is_living": "false",
         }
 
     @rx.var
@@ -2145,6 +2525,7 @@ class ResearchState(rx.State):
             self.info_message = "Este artigo não parece se referir a uma pessoa. A extração biográfica é otimizada para pessoas (P31 = Q5)."
         else:
             self.info_message = "Pré-visualização carregada. Confirme para extrair informações biográficas estruturadas."
+        yield rx.scroll_to("preview-anchor")
 
     @rx.event
     async def confirm_article(self):
@@ -2235,7 +2616,6 @@ class ResearchState(rx.State):
         nat_qid = _claim_qid(claims, "P27")
         is_living = (not death_date) and (not death_qid)
 
-        # Occupations (P106) — primary source for disambiguation context
         occupation_qids: list[str] = []
         for c in claims.get("P106", []) or []:
             try:
@@ -2251,7 +2631,6 @@ class ResearchState(rx.State):
                 continue
         occupation_qids = occupation_qids[:3]
 
-        # Wikidata short description (concise multi-language gloss)
         descriptions = entity.get("descriptions", {}) or {}
         wd_description = (
             (descriptions.get("pt", {}) or {}).get("value")
@@ -2266,7 +2645,6 @@ class ResearchState(rx.State):
             await asyncio.to_thread(_wd_entities, ref_qids) if ref_qids else {}
         )
 
-        # Resolve occupation labels (top 2, joined for compact display)
         occupation_labels: list[str] = []
         for q in occupation_qids:
             lbl = _label_of(ref_entities.get(q))
@@ -2448,7 +2826,7 @@ class ResearchState(rx.State):
             )
             self.last_persist_action = "removido"
             yield rx.toast(
-                title="Registro removido",
+                title="Registro removed",
                 description=f"“{name}” foi excluído do armazenamento local.",
                 position="bottom-right",
                 duration=3500,

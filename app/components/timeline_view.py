@@ -112,12 +112,20 @@ def selected_detail_panel() -> rx.Component:
                         ),
                         rx.cond(
                             ResearchState.selected_person["short_id"] != "",
-                            rx.el.span(
+                            rx.el.a(
                                 ResearchState.selected_person["short_id"],
+                                rx.icon(
+                                    "external-link",
+                                    class_name="h-2.5 w-2.5 inline-block ml-0.5",
+                                ),
+                                href="https://www.wikidata.org/wiki/"
+                                + ResearchState.selected_person["qid"],
+                                target="_blank",
+                                title="Abrir no Wikidata",
                                 class_name=rx.cond(
                                     ResearchState.dark_mode,
-                                    "text-[10px] font-mono text-blue-300 mt-0.5 inline-block",
-                                    "text-[10px] font-mono text-blue-600 mt-0.5 inline-block",
+                                    "text-[10px] font-mono text-blue-300 hover:text-blue-100 mt-0.5 inline-flex items-center",
+                                    "text-[10px] font-mono text-blue-600 hover:text-blue-800 mt-0.5 inline-flex items-center",
                                 ),
                             ),
                             rx.fragment(),
@@ -141,8 +149,8 @@ def selected_detail_panel() -> rx.Component:
                 ResearchState.selected_person["summary"],
                 class_name=rx.cond(
                     ResearchState.dark_mode,
-                    "text-xs text-gray-300 leading-relaxed mt-3 line-clamp-4",
-                    "text-xs text-gray-600 leading-relaxed mt-3 line-clamp-4",
+                    "text-xs text-gray-300 leading-relaxed mt-3",
+                    "text-xs text-gray-600 leading-relaxed mt-3",
                 ),
             ),
             rx.el.div(
@@ -202,16 +210,35 @@ def selected_detail_panel() -> rx.Component:
                 ),
                 class_name="grid grid-cols-1 sm:grid-cols-2 gap-2 mt-4",
             ),
-            rx.el.a(
-                rx.icon("external-link", class_name="h-3.5 w-3.5"),
-                rx.el.span("Ver na Wikipédia"),
-                href=ResearchState.selected_person["article_url"],
-                target="_blank",
-                class_name=rx.cond(
-                    ResearchState.dark_mode,
-                    "inline-flex items-center gap-1.5 text-xs font-medium text-gray-300 hover:text-blue-400 px-3 py-2 rounded-lg border border-gray-800 hover:border-blue-800 transition-colors mt-4",
-                    "inline-flex items-center gap-1.5 text-xs font-medium text-gray-700 hover:text-blue-700 px-3 py-2 rounded-lg border border-gray-200 hover:border-blue-300 transition-colors mt-4",
+            rx.el.div(
+                rx.el.a(
+                    rx.icon("external-link", class_name="h-3.5 w-3.5"),
+                    rx.el.span("Wikipédia"),
+                    href=ResearchState.selected_person["article_url"],
+                    target="_blank",
+                    class_name=rx.cond(
+                        ResearchState.dark_mode,
+                        "inline-flex items-center gap-1.5 text-xs font-medium text-gray-300 hover:text-blue-400 px-3 py-2 rounded-lg border border-gray-800 hover:border-blue-800 transition-colors",
+                        "inline-flex items-center gap-1.5 text-xs font-medium text-gray-700 hover:text-blue-700 px-3 py-2 rounded-lg border border-gray-200 hover:border-blue-300 transition-colors",
+                    ),
                 ),
+                rx.cond(
+                    ResearchState.selected_person["qid"] != "",
+                    rx.el.a(
+                        rx.icon("database", class_name="h-3.5 w-3.5"),
+                        rx.el.span("Wikidata"),
+                        href="https://www.wikidata.org/wiki/"
+                        + ResearchState.selected_person["qid"],
+                        target="_blank",
+                        class_name=rx.cond(
+                            ResearchState.dark_mode,
+                            "inline-flex items-center gap-1.5 text-xs font-medium text-gray-300 hover:text-blue-400 px-3 py-2 rounded-lg border border-gray-800 hover:border-blue-800 transition-colors",
+                            "inline-flex items-center gap-1.5 text-xs font-medium text-gray-700 hover:text-blue-700 px-3 py-2 rounded-lg border border-gray-200 hover:border-blue-300 transition-colors",
+                        ),
+                    ),
+                    rx.fragment(),
+                ),
+                class_name="flex items-center gap-2 flex-wrap mt-4",
             ),
             class_name=rx.cond(
                 ResearchState.dark_mode,

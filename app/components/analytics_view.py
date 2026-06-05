@@ -355,13 +355,20 @@ def recent_searches_panel() -> rx.Component:
                                 ),
                                 rx.cond(
                                     h["short_id"] != "",
-                                    rx.el.span(
+                                    rx.el.a(
                                         h["short_id"],
-                                        title=f"Wikidata: {h['short_id']}",
+                                        rx.icon(
+                                            "external-link",
+                                            class_name="h-2 w-2 inline-block ml-0.5",
+                                        ),
+                                        href="https://www.wikidata.org/wiki/"
+                                        + h["qid"],
+                                        target="_blank",
+                                        title=f"Abrir {h['qid']} no Wikidata",
                                         class_name=rx.cond(
                                             ResearchState.dark_mode,
-                                            "inline-block text-[9px] font-mono text-blue-300 bg-blue-950/40 border border-blue-900 px-1.5 py-0.5 rounded mt-1",
-                                            "inline-block text-[9px] font-mono text-blue-700 bg-blue-50 border border-blue-100 px-1.5 py-0.5 rounded mt-1",
+                                            "inline-flex items-center text-[9px] font-mono text-blue-300 bg-blue-950/40 border border-blue-900 hover:border-blue-700 px-1.5 py-0.5 rounded mt-1",
+                                            "inline-flex items-center text-[9px] font-mono text-blue-700 bg-blue-50 border border-blue-100 hover:border-blue-300 px-1.5 py-0.5 rounded mt-1",
                                         ),
                                     ),
                                     rx.fragment(),

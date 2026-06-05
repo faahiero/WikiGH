@@ -220,29 +220,68 @@ def preview_panel() -> rx.Component:
                 class_name="flex items-start gap-3",
             ),
             rx.el.div(
-                rx.el.span(
-                    "Wikidata",
-                    class_name=rx.cond(
-                        ResearchState.dark_mode,
-                        "text-[10px] font-semibold uppercase text-gray-400",
-                        "text-[10px] font-semibold uppercase text-gray-500",
+                rx.cond(
+                    ResearchState.selected_preview["wikidata_id"]
+                    .to_string()
+                    .startswith("Q"),
+                    rx.el.a(
+                        rx.el.span(
+                            "Wikidata",
+                            class_name=rx.cond(
+                                ResearchState.dark_mode,
+                                "text-[10px] font-semibold uppercase text-gray-400",
+                                "text-[10px] font-semibold uppercase text-gray-500",
+                            ),
+                        ),
+                        rx.el.span(
+                            ResearchState.selected_preview["wikidata_id"],
+                            class_name=rx.cond(
+                                ResearchState.dark_mode,
+                                "text-xs font-mono text-blue-300 ml-1",
+                                "text-xs font-mono text-blue-700 ml-1",
+                            ),
+                        ),
+                        rx.icon(
+                            "external-link",
+                            class_name="h-3 w-3 ml-1 inline-block",
+                        ),
+                        href="https://www.wikidata.org/wiki/"
+                        + ResearchState.selected_preview["wikidata_id"],
+                        target="_blank",
+                        title="Abrir entidade no Wikidata",
+                        class_name=rx.cond(
+                            ResearchState.dark_mode,
+                            "px-2.5 py-1 rounded-md bg-blue-950/40 border border-blue-900 hover:border-blue-700 hover:bg-blue-950/60 transition-colors inline-flex items-center",
+                            "px-2.5 py-1 rounded-md bg-blue-50 border border-blue-100 hover:border-blue-300 hover:bg-blue-100 transition-colors inline-flex items-center",
+                        ),
+                    ),
+                    rx.el.div(
+                        rx.el.span(
+                            "Wikidata",
+                            class_name=rx.cond(
+                                ResearchState.dark_mode,
+                                "text-[10px] font-semibold uppercase text-gray-400",
+                                "text-[10px] font-semibold uppercase text-gray-500",
+                            ),
+                        ),
+                        rx.el.span(
+                            ResearchState.selected_preview["wikidata_id"],
+                            class_name=rx.cond(
+                                ResearchState.dark_mode,
+                                "text-xs font-mono text-gray-300 ml-1",
+                                "text-xs font-mono text-gray-700 ml-1",
+                            ),
+                        ),
+                        class_name=rx.cond(
+                            ResearchState.dark_mode,
+                            "px-2.5 py-1 rounded-md bg-gray-800 border border-gray-700",
+                            "px-2.5 py-1 rounded-md bg-gray-100 border border-gray-200",
+                        ),
                     ),
                 ),
-                rx.el.span(
-                    ResearchState.selected_preview["wikidata_id"],
-                    class_name=rx.cond(
-                        ResearchState.dark_mode,
-                        "text-xs font-mono text-gray-300 ml-1",
-                        "text-xs font-mono text-gray-700 ml-1",
-                    ),
-                ),
-                class_name=rx.cond(
-                    ResearchState.dark_mode,
-                    "px-2.5 py-1 rounded-md bg-gray-800 border border-gray-700",
-                    "px-2.5 py-1 rounded-md bg-gray-100 border border-gray-200",
-                ),
+                class_name="flex items-start justify-between gap-3",
             ),
-            class_name="flex items-start justify-between gap-3",
+            class_name="flex items-start justify-between gap-3 flex-wrap",
         ),
         rx.el.p(
             ResearchState.selected_preview["extract"],
@@ -370,10 +409,11 @@ def preview_panel() -> rx.Component:
             ),
             class_name="flex items-center gap-2 mt-4",
         ),
+        id="preview-anchor",
         class_name=rx.cond(
             ResearchState.dark_mode,
-            "bg-gray-900 border border-gray-800 rounded-xl p-5",
-            "bg-white border border-gray-200 rounded-xl p-5",
+            "bg-gray-900 border border-gray-800 rounded-xl p-5 scroll-mt-20",
+            "bg-white border border-gray-200 rounded-xl p-5 scroll-mt-20",
         ),
     )
 

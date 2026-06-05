@@ -29,11 +29,11 @@ def map_marker(point) -> rx.Component:
                         rx.el.img(
                             src=point["image_url"],
                             alt=point["name"],
-                            class_name="h-10 w-10 rounded-full bg-gray-100 object-cover border border-gray-200 shrink-0",
+                            class_name="h-12 w-12 rounded-full bg-gray-100 object-cover border-2 border-white shadow shrink-0",
                         ),
                         rx.el.img(
                             src=f"https://api.dicebear.com/9.x/notionists/svg?seed={point['name']}",
-                            class_name="h-10 w-10 rounded-full bg-gray-100 shrink-0",
+                            class_name="h-12 w-12 rounded-full bg-gray-100 border-2 border-white shadow shrink-0",
                         ),
                     ),
                     rx.el.div(
@@ -42,30 +42,39 @@ def map_marker(point) -> rx.Component:
                             class_name="text-sm font-bold text-gray-900 leading-tight",
                         ),
                         rx.cond(
+                            point["nationality"] != "",
+                            rx.el.p(
+                                point["nationality"],
+                                class_name="text-[11px] text-gray-500 truncate",
+                            ),
+                            rx.fragment(),
+                        ),
+                        rx.cond(
                             point["is_homonym"]
                             & (point["context_label"] != ""),
                             rx.el.div(
                                 rx.icon(
                                     "split",
-                                    class_name="h-2.5 w-2.5 text-amber-700",
+                                    class_name="h-2.5 w-2.5 text-amber-700 shrink-0",
                                 ),
                                 rx.el.span(
                                     point["context_label"],
                                     class_name="text-[10px] text-amber-800 truncate",
                                 ),
-                                class_name="inline-flex items-center gap-1 px-1.5 py-0.5 mt-0.5 rounded bg-amber-50 border border-amber-100 max-w-[180px]",
+                                title=point["context_label"],
+                                class_name="inline-flex items-center gap-1 px-1.5 py-0.5 mt-0.5 rounded bg-amber-50 border border-amber-100 max-w-[200px]",
                             ),
-                            rx.fragment(),
-                        ),
-                        rx.cond(
-                            point["short_id"] != "",
-                            rx.el.span(
-                                point["short_id"],
-                                class_name="text-[9px] font-mono text-blue-600 mt-0.5 block",
+                            rx.cond(
+                                point["occupation"] != "",
+                                rx.el.p(
+                                    point["occupation"],
+                                    title=point["occupation"],
+                                    class_name="text-[10px] text-gray-600 italic truncate max-w-[200px]",
+                                ),
+                                rx.fragment(),
                             ),
-                            rx.fragment(),
                         ),
-                        class_name="min-w-0",
+                        class_name="min-w-0 flex-1",
                     ),
                     class_name="flex items-start gap-2",
                 ),
@@ -73,30 +82,241 @@ def map_marker(point) -> rx.Component:
                     rx.cond(
                         point["kind"] == "Nascimento",
                         rx.el.span(
-                            "Nascimento",
-                            class_name="inline-block text-[10px] font-semibold text-emerald-700 bg-emerald-50 border border-emerald-100 px-2 py-0.5 rounded-full",
+                            rx.icon("baby", class_name="h-2.5 w-2.5"),
+                            rx.el.span("Nascimento"),
+                            class_name="inline-flex items-center gap-1 text-[10px] font-semibold text-emerald-700 bg-emerald-50 border border-emerald-100 px-2 py-0.5 rounded-full",
                         ),
                         rx.el.span(
-                            "Falecimento",
-                            class_name="inline-block text-[10px] font-semibold text-red-700 bg-red-50 border border-red-100 px-2 py-0.5 rounded-full",
+                            rx.icon("flower-2", class_name="h-2.5 w-2.5"),
+                            rx.el.span("Falecimento"),
+                            class_name="inline-flex items-center gap-1 text-[10px] font-semibold text-red-700 bg-red-50 border border-red-100 px-2 py-0.5 rounded-full",
                         ),
                     ),
                     class_name="mt-2",
                 ),
-                rx.el.p(
-                    point["place"],
-                    class_name="text-xs text-gray-700 mt-2",
+                rx.el.div(
+                    rx.icon(
+                        "map-pin",
+                        class_name="h-3 w-3 text-gray-500 mt-0.5 shrink-0",
+                    ),
+                    rx.el.span(
+                        point["place"],
+                        class_name="text-xs text-gray-700 leading-snug",
+                    ),
+                    class_name="flex items-start gap-1 mt-2",
                 ),
-                rx.el.p(
-                    point["date_br"],
-                    title=point["date"],
-                    class_name="text-[11px] text-gray-500 font-mono mt-0.5",
+                rx.el.div(
+                    rx.icon(
+                        "calendar", class_name="h-3 w-3 text-gray-500 shrink-0"
+                    ),
+                    rx.el.span(
+                        point["date_br"],
+                        title=point["date"],
+                        class_name="text-[11px] text-gray-600 font-mono",
+                    ),
+                    class_name="flex items-center gap-1 mt-1",
                 ),
-                class_name="min-w-[200px]",
+                rx.cond(
+                    (point["birth_date_br"] != "")
+                    & (point["death_date_br"] != ""),
+                    rx.el.div(
+                        rx.el.span(
+                            point["birth_date_br"],
+                            title=point["birth_place"],
+                            class_name="text-[10px] font-mono text-emerald-700",
+                        ),
+                        rx.el.span(
+                            " → ", class_name="text-[10px] text-gray-400"
+                        ),
+                        rx.el.span(
+                            rx.cond(
+                                point["is_living"],
+                                "Vivo(a)",
+                                point["death_date_br"],
+                            ),
+                            title=point["death_place"],
+                            class_name=rx.cond(
+                                point["is_living"],
+                                "text-[10px] font-mono text-emerald-700",
+                                "text-[10px] font-mono text-red-700",
+                            ),
+                        ),
+                        class_name="mt-1.5 pt-1.5 border-t border-gray-100",
+                    ),
+                    rx.fragment(),
+                ),
+                rx.el.div(
+                    rx.el.a(
+                        rx.icon("external-link", class_name="h-2.5 w-2.5"),
+                        rx.el.span("Wikipédia"),
+                        href=point["article_url"],
+                        target="_blank",
+                        class_name="inline-flex items-center gap-1 text-[10px] font-semibold text-blue-700 hover:text-blue-900 px-2 py-1 rounded border border-blue-200 hover:border-blue-400 bg-blue-50",
+                    ),
+                    rx.cond(
+                        point["qid"] != "",
+                        rx.el.a(
+                            rx.icon("database", class_name="h-2.5 w-2.5"),
+                            rx.el.span(point["short_id"]),
+                            href="https://www.wikidata.org/wiki/"
+                            + point["qid"],
+                            target="_blank",
+                            title=f"Abrir {point['qid']} no Wikidata",
+                            class_name="inline-flex items-center gap-1 text-[10px] font-mono font-semibold text-blue-700 hover:text-blue-900 px-2 py-1 rounded border border-blue-200 hover:border-blue-400 bg-blue-50",
+                        ),
+                        rx.fragment(),
+                    ),
+                    class_name="flex items-center gap-1.5 mt-3 pt-2 border-t border-gray-100",
+                ),
+                class_name="min-w-[240px]",
             )
         ),
         rxe.map.tooltip(point["display_name"]),
         position=latlng(lat=point["lat"], lng=point["lng"]),
+    )
+
+
+def selected_location_overlay() -> rx.Component:
+    return rx.cond(
+        ResearchState.has_selected_person,
+        rx.el.div(
+            rx.el.div(
+                rx.cond(
+                    ResearchState.selected_person["image_url"] != "",
+                    rx.el.img(
+                        src=ResearchState.selected_person["image_url"],
+                        alt=ResearchState.selected_person["name"],
+                        class_name="h-12 w-12 rounded-full bg-gray-100 object-cover border-2 border-white shadow shrink-0",
+                    ),
+                    rx.el.img(
+                        src=f"https://api.dicebear.com/9.x/notionists/svg?seed={ResearchState.selected_person['name']}",
+                        class_name="h-12 w-12 rounded-full bg-gray-100 border-2 border-white shadow shrink-0",
+                    ),
+                ),
+                rx.el.div(
+                    rx.el.p(
+                        ResearchState.selected_person["name"],
+                        class_name="text-sm font-bold text-gray-900 truncate",
+                    ),
+                    rx.cond(
+                        (ResearchState.selected_person["is_homonym"] == "true")
+                        & (
+                            ResearchState.selected_person["context_label"] != ""
+                        ),
+                        rx.el.div(
+                            rx.icon(
+                                "split",
+                                class_name="h-2.5 w-2.5 text-amber-700 shrink-0 mt-0.5",
+                            ),
+                            rx.el.span(
+                                ResearchState.selected_person["context_label"],
+                                title=ResearchState.selected_person[
+                                    "context_label"
+                                ],
+                                class_name="text-[10px] text-amber-800 break-words",
+                            ),
+                            title=ResearchState.selected_person[
+                                "context_label"
+                            ],
+                            class_name="inline-flex items-start gap-1 px-1.5 py-0.5 mt-0.5 rounded bg-amber-50 border border-amber-100 max-w-full",
+                        ),
+                        rx.el.p(
+                            ResearchState.selected_person["nationality"],
+                            class_name="text-xs text-gray-500 truncate",
+                        ),
+                    ),
+                    rx.cond(
+                        ResearchState.selected_person["occupation"] != "",
+                        rx.el.p(
+                            ResearchState.selected_person["occupation"],
+                            title=ResearchState.selected_person["occupation"],
+                            class_name="text-[10px] text-gray-600 italic truncate",
+                        ),
+                        rx.fragment(),
+                    ),
+                    rx.cond(
+                        ResearchState.selected_person["short_id"] != "",
+                        rx.el.a(
+                            rx.icon("database", class_name="h-2.5 w-2.5"),
+                            rx.el.span(
+                                ResearchState.selected_person["short_id"]
+                            ),
+                            rx.icon("external-link", class_name="h-2 w-2"),
+                            href="https://www.wikidata.org/wiki/"
+                            + ResearchState.selected_person["qid"],
+                            target="_blank",
+                            title="Abrir no Wikidata",
+                            class_name="inline-flex items-center gap-1 text-[10px] font-mono text-blue-700 hover:text-blue-900 mt-0.5 px-1.5 py-0.5 rounded bg-blue-50 border border-blue-100 hover:border-blue-300 w-fit",
+                        ),
+                        rx.fragment(),
+                    ),
+                    class_name="flex-1 min-w-0",
+                ),
+                rx.el.button(
+                    rx.icon("x", class_name="h-3.5 w-3.5"),
+                    on_click=lambda: ResearchState.select_person(""),
+                    class_name="text-gray-400 hover:text-gray-700 p-1 shrink-0",
+                ),
+                class_name="flex items-center gap-2",
+            ),
+            rx.el.div(
+                rx.el.div(
+                    rx.icon(
+                        "baby", class_name="h-3 w-3 text-emerald-600 shrink-0"
+                    ),
+                    rx.el.span(
+                        ResearchState.selected_person["birth_date"],
+                        class_name="text-[10px] font-mono text-gray-600 shrink-0",
+                    ),
+                    rx.el.span(
+                        ResearchState.selected_person["birth_place"],
+                        title=ResearchState.selected_person["birth_place"],
+                        class_name="text-[11px] text-gray-700 truncate",
+                    ),
+                    class_name="flex items-center gap-1.5",
+                ),
+                rx.el.div(
+                    rx.icon(
+                        "flower-2", class_name="h-3 w-3 text-red-600 shrink-0"
+                    ),
+                    rx.el.span(
+                        ResearchState.selected_person["death_date"],
+                        class_name="text-[10px] font-mono text-gray-600 shrink-0",
+                    ),
+                    rx.el.span(
+                        ResearchState.selected_person["death_place"],
+                        title=ResearchState.selected_person["death_place"],
+                        class_name="text-[11px] text-gray-700 truncate",
+                    ),
+                    class_name="flex items-center gap-1.5",
+                ),
+                class_name="mt-2 pt-2 border-t border-gray-100 space-y-1",
+            ),
+            rx.el.div(
+                rx.el.a(
+                    rx.icon("external-link", class_name="h-2.5 w-2.5"),
+                    rx.el.span("Wikipédia"),
+                    href=ResearchState.selected_person["article_url"],
+                    target="_blank",
+                    class_name="inline-flex items-center gap-1 text-[10px] font-semibold text-blue-700 hover:text-blue-900 px-2 py-1 rounded border border-blue-200 hover:border-blue-400 bg-blue-50 flex-1 justify-center",
+                ),
+                rx.cond(
+                    ResearchState.selected_person["qid"] != "",
+                    rx.el.a(
+                        rx.icon("database", class_name="h-2.5 w-2.5"),
+                        rx.el.span("Wikidata"),
+                        href="https://www.wikidata.org/wiki/"
+                        + ResearchState.selected_person["qid"],
+                        target="_blank",
+                        class_name="inline-flex items-center gap-1 text-[10px] font-semibold text-blue-700 hover:text-blue-900 px-2 py-1 rounded border border-blue-200 hover:border-blue-400 bg-blue-50 flex-1 justify-center",
+                    ),
+                    rx.fragment(),
+                ),
+                class_name="flex items-center gap-1.5 mt-2 pt-2 border-t border-gray-100",
+            ),
+            class_name="absolute bottom-3 right-3 z-[1000] w-72 bg-white/95 backdrop-blur-md rounded-xl border border-gray-200 shadow-lg p-3",
+        ),
+        rx.fragment(),
     )
 
 
@@ -226,109 +446,30 @@ def map_legend_floating() -> rx.Component:
     )
 
 
-def selected_location_overlay() -> rx.Component:
-    return rx.cond(
-        ResearchState.has_selected_person,
-        rx.el.div(
-            rx.el.div(
-                rx.cond(
-                    ResearchState.selected_person["image_url"] != "",
-                    rx.el.img(
-                        src=ResearchState.selected_person["image_url"],
-                        alt=ResearchState.selected_person["name"],
-                        class_name="h-12 w-12 rounded-full bg-gray-100 object-cover border-2 border-white shadow shrink-0",
-                    ),
-                    rx.el.img(
-                        src=f"https://api.dicebear.com/9.x/notionists/svg?seed={ResearchState.selected_person['name']}",
-                        class_name="h-12 w-12 rounded-full bg-gray-100 border-2 border-white shadow shrink-0",
-                    ),
-                ),
-                rx.el.div(
-                    rx.el.p(
-                        ResearchState.selected_person["name"],
-                        class_name="text-sm font-bold text-gray-900 truncate",
-                    ),
-                    rx.cond(
-                        (ResearchState.selected_person["is_homonym"] == "true")
-                        & (
-                            ResearchState.selected_person["context_label"] != ""
-                        ),
-                        rx.el.div(
-                            rx.icon(
-                                "split",
-                                class_name="h-2.5 w-2.5 text-amber-700 shrink-0 mt-0.5",
-                            ),
-                            rx.el.span(
-                                ResearchState.selected_person["context_label"],
-                                title=ResearchState.selected_person[
-                                    "context_label"
-                                ],
-                                class_name="text-[10px] text-amber-800 break-words",
-                            ),
-                            title=ResearchState.selected_person[
-                                "context_label"
-                            ],
-                            class_name="inline-flex items-start gap-1 px-1.5 py-0.5 mt-0.5 rounded bg-amber-50 border border-amber-100 max-w-full",
-                        ),
-                        rx.el.p(
-                            ResearchState.selected_person["nationality"],
-                            class_name="text-xs text-gray-500 truncate",
-                        ),
-                    ),
-                    rx.cond(
-                        ResearchState.selected_person["short_id"] != "",
-                        rx.el.span(
-                            ResearchState.selected_person["short_id"],
-                            class_name="text-[10px] font-mono text-blue-600 mt-0.5 block",
-                        ),
-                        rx.fragment(),
-                    ),
-                    class_name="flex-1 min-w-0",
-                ),
-                rx.el.button(
-                    rx.icon("x", class_name="h-3.5 w-3.5"),
-                    on_click=lambda: ResearchState.select_person(""),
-                    class_name="text-gray-400 hover:text-gray-700 p-1 shrink-0",
-                ),
-                class_name="flex items-center gap-2",
-            ),
-            rx.el.div(
-                rx.el.div(
-                    rx.icon("baby", class_name="h-3 w-3 text-emerald-600"),
-                    rx.el.span(
-                        ResearchState.selected_person["birth_place"],
-                        class_name="text-[11px] text-gray-700 truncate",
-                    ),
-                    class_name="flex items-center gap-1.5",
-                ),
-                rx.el.div(
-                    rx.icon("flower-2", class_name="h-3 w-3 text-red-600"),
-                    rx.el.span(
-                        ResearchState.selected_person["death_place"],
-                        class_name="text-[11px] text-gray-700 truncate",
-                    ),
-                    class_name="flex items-center gap-1.5",
-                ),
-                class_name="mt-2 pt-2 border-t border-gray-100 space-y-1",
-            ),
-            class_name="absolute bottom-3 right-3 z-[1000] w-72 bg-white/95 backdrop-blur-md rounded-xl border border-gray-200 shadow-lg p-3",
-        ),
-        rx.fragment(),
-    )
-
-
 def selectable_person_chip(person) -> rx.Component:
     map_api = rxe.map.api("geo-map")
-    target_coords = rx.cond(
-        (person["birth_lat"] != 0.0) | (person["birth_lng"] != 0.0),
-        latlng(lat=person["birth_lat"], lng=person["birth_lng"]),
-        latlng(lat=person["death_lat"], lng=person["death_lng"]),
-    )
-    has_any_coords = (
-        (person["birth_lat"] != 0.0)
-        | (person["birth_lng"] != 0.0)
-        | (person["death_lat"] != 0.0)
-        | (person["death_lng"] != 0.0)
+    has_birth = (person["birth_lat"] != 0.0) | (person["birth_lng"] != 0.0)
+    has_death = (person["death_lat"] != 0.0) | (person["death_lng"] != 0.0)
+    has_both = has_birth & has_death
+    mid_lat = (person["birth_lat"] + person["death_lat"]) / 2
+    mid_lng = (person["birth_lng"] + person["death_lng"]) / 2
+    fly_event = rx.cond(
+        has_both,
+        map_api.fly_to(latlng(lat=mid_lat, lng=mid_lng), 3.5),
+        rx.cond(
+            has_birth,
+            map_api.fly_to(
+                latlng(lat=person["birth_lat"], lng=person["birth_lng"]), 5.0
+            ),
+            rx.cond(
+                has_death,
+                map_api.fly_to(
+                    latlng(lat=person["death_lat"], lng=person["death_lng"]),
+                    5.0,
+                ),
+                rx.noop(),
+            ),
+        ),
     )
     return rx.el.button(
         rx.cond(
@@ -363,11 +504,18 @@ def selectable_person_chip(person) -> rx.Component:
             ),
             rx.fragment(),
         ),
-        on_click=rx.cond(
-            ResearchState.selected_person_id == person["id"],
-            ResearchState.select_person(""),
-            ResearchState.select_person(person["id"]),
-        ),
+        on_click=[
+            rx.cond(
+                ResearchState.selected_person_id == person["id"],
+                ResearchState.select_person(""),
+                ResearchState.select_person(person["id"]),
+            ),
+            rx.cond(
+                ResearchState.selected_person_id == person["id"],
+                rx.noop(),
+                fly_event,
+            ),
+        ],
         class_name=rx.cond(
             ResearchState.selected_person_id == person["id"],
             "inline-flex items-center gap-1.5 px-2 py-1 rounded-full bg-blue-600 text-white border border-blue-700 shrink-0",

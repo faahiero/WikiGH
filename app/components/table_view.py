@@ -101,12 +101,20 @@ def table_row(person) -> rx.Component:
                             ),
                         ),
                         rx.el.span("•", class_name="text-xs text-gray-400"),
-                        rx.el.span(
+                        rx.el.a(
                             person["id"],
+                            rx.icon(
+                                "external-link",
+                                class_name="h-2.5 w-2.5 inline-block ml-0.5",
+                            ),
+                            href="https://www.wikidata.org/wiki/"
+                            + person["id"],
+                            target="_blank",
+                            title=f"Abrir {person['id']} no Wikidata",
                             class_name=rx.cond(
                                 ResearchState.dark_mode,
-                                "text-[10px] font-mono text-blue-300",
-                                "text-[10px] font-mono text-blue-600",
+                                "text-[10px] font-mono text-blue-300 hover:text-blue-100 inline-flex items-center",
+                                "text-[10px] font-mono text-blue-600 hover:text-blue-800 inline-flex items-center",
                             ),
                         ),
                         class_name="flex items-center gap-1",

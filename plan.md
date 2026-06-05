@@ -1,18 +1,18 @@
-# Ajustes de Foco no Mapa, Fluxo de Busca e Desambiguação Curta
+# Ajustes de Foco, Enquadramento do Mapa e Contexto Wikidata
 
-## Phase 1: Interação do Mapa e Foco Rápido ✅
-- [x] Centralizar o mapa automaticamente no ponto relevante ao selecionar uma pessoa pelo foco rápido.
-- [x] Manter os marcadores e conexões da pessoa selecionada visíveis após a seleção.
-- [x] Preservar o layout expandido do mapa sem cortes e sem rolagem global.
+## Phase 1: Foco da Pré-visualização e Enquadramento do Mapa ✅
+- [x] Fazer a página subir automaticamente para a pré-visualização ao selecionar um resultado de busca.
+- [x] Manter o usuário visualmente focado no resultado escolhido após a pré-visualização carregar.
+- [x] Ajustar o foco rápido do mapa para enquadrar nascimento e falecimento juntos quando ambos existirem.
+- [x] Preservar seleção, marcadores, conexões e layout expandido do mapa.
 
-## Phase 2: Fluxo de Busca e Pré-visualização ✅
-- [x] Remover o bloco redundante de sugestões da área vazia da busca, mantendo apenas as sugestões guiadas do topo.
-- [x] Exibir avatar genérico consistente quando a pré-visualização do artigo não tiver imagem.
-- [x] Reorganizar o resultado selecionado para que a pré-visualização fique imediatamente acessível sem exigir rolagem manual.
-- [x] Preservar estados de carregamento, erros e mensagens informativas.
+## Phase 2: Homônimos e Contexto de Atuação ✅
+- [x] Revisar a lógica de contexto para evitar país de origem como principal diferencial quando houver profissão, ocupação ou área de atuação.
+- [x] Mostrar contexto curto, útil e direto em todos os pontos onde homônimos aparecem.
+- [x] Garantir fallback apenas quando dados melhores não estiverem disponíveis.
 
-## Phase 3: Desambiguação Curta e Validação ✅
-- [x] Tornar o contexto de desambiguação curto e direto, priorizando profissão ou área de atuação.
-- [x] Evitar textos longos truncados em cartões, chips, histórico, mapa, tabela e linha do tempo.
-- [x] Validar seleção no mapa, fluxo de busca, avatar genérico, pré-visualização e contexto curto.
-- [x] Garantir que busca, extração, persistência, exportação, autenticação e visualizações existentes continuem funcionando.
+## Phase 3: Cartões Enriquecidos e Links Wikidata ✅
+- [x] Enriquecer visualmente o cartão exibido ao clicar no pino do mapa com dados úteis e ações externas.
+- [x] Adicionar link para Wikidata nos códigos exibidos na pré-visualização e demais locais relevantes.
+- [x] Adicionar link para o artigo da Wikipédia e metadados relevantes nos cartões de mapa.
+- [x] Validar busca, rolagem automática, enquadramento do mapa, contexto de homônimos, links e renderização geral.
