@@ -482,7 +482,11 @@ def authenticated_app() -> rx.Component:
             topbar(),
             rx.el.div(
                 main_content(),
-                class_name="px-5 lg:px-8 py-5 flex-1 overflow-y-auto text-[15px]",
+                class_name=rx.cond(
+                    ResearchState.active_view == "map",
+                    "px-5 lg:px-8 py-4 flex-1 overflow-hidden text-[16px] flex flex-col min-h-0",
+                    "px-5 lg:px-8 py-5 flex-1 overflow-y-auto text-[16px]",
+                ),
             ),
             class_name=rx.cond(
                 ResearchState.dark_mode,

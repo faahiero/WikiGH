@@ -104,50 +104,50 @@ def map_stats_overlay() -> rx.Component:
     return rx.el.div(
         rx.el.div(
             rx.el.div(
-                rx.icon("map-pin", class_name="h-3.5 w-3.5 text-blue-600"),
+                rx.icon("map-pin", class_name="h-4 w-4 text-blue-600"),
                 rx.el.span(
                     "Pontos",
-                    class_name="text-[10px] font-semibold uppercase tracking-wider text-gray-500",
+                    class_name="text-[11px] font-semibold uppercase tracking-wider text-gray-500",
                 ),
-                class_name="flex items-center gap-1",
+                class_name="flex items-center gap-1.5",
             ),
             rx.el.p(
                 ResearchState.total_map_points.to_string(),
-                class_name="text-xl font-bold text-gray-900 leading-none mt-1",
+                class_name="text-2xl font-bold text-gray-900 leading-none mt-1",
             ),
-            class_name="px-3 py-2 border-r border-gray-200",
+            class_name="px-4 py-2.5 border-r border-gray-200",
         ),
         rx.el.div(
             rx.el.div(
-                rx.icon("users", class_name="h-3.5 w-3.5 text-emerald-600"),
+                rx.icon("users", class_name="h-4 w-4 text-emerald-600"),
                 rx.el.span(
                     "Pessoas",
-                    class_name="text-[10px] font-semibold uppercase tracking-wider text-gray-500",
+                    class_name="text-[11px] font-semibold uppercase tracking-wider text-gray-500",
                 ),
-                class_name="flex items-center gap-1",
+                class_name="flex items-center gap-1.5",
             ),
             rx.el.p(
                 ResearchState.total_people.to_string(),
-                class_name="text-xl font-bold text-gray-900 leading-none mt-1",
+                class_name="text-2xl font-bold text-gray-900 leading-none mt-1",
             ),
-            class_name="px-3 py-2 border-r border-gray-200",
+            class_name="px-4 py-2.5 border-r border-gray-200",
         ),
         rx.el.div(
             rx.el.div(
-                rx.icon("globe", class_name="h-3.5 w-3.5 text-amber-600"),
+                rx.icon("globe", class_name="h-4 w-4 text-amber-600"),
                 rx.el.span(
                     "Cobertura",
-                    class_name="text-[10px] font-semibold uppercase tracking-wider text-gray-500",
+                    class_name="text-[11px] font-semibold uppercase tracking-wider text-gray-500",
                 ),
-                class_name="flex items-center gap-1",
+                class_name="flex items-center gap-1.5",
             ),
             rx.el.p(
                 f"{ResearchState.geocoding_coverage}%",
-                class_name="text-xl font-bold text-gray-900 leading-none mt-1",
+                class_name="text-2xl font-bold text-gray-900 leading-none mt-1",
             ),
-            class_name="px-3 py-2",
+            class_name="px-4 py-2.5",
         ),
-        class_name="absolute top-3 left-3 z-[1000] flex items-center bg-white/95 backdrop-blur-md rounded-xl border border-gray-200 shadow-lg overflow-hidden",
+        class_name="absolute top-3 left-1/2 -translate-x-1/2 z-[1000] flex items-center bg-white/95 backdrop-blur-md rounded-xl border border-gray-200 shadow-lg overflow-hidden max-w-[90%]",
     )
 
 
@@ -222,7 +222,7 @@ def map_legend_floating() -> rx.Component:
             ),
             class_name="flex items-center gap-2 py-1",
         ),
-        class_name="absolute top-3 right-3 z-[1000] bg-white/95 backdrop-blur-md rounded-xl border border-gray-200 shadow-lg p-3",
+        class_name="absolute top-20 right-3 z-[1000] bg-white/95 backdrop-blur-md rounded-xl border border-gray-200 shadow-lg p-3",
     )
 
 
@@ -528,13 +528,13 @@ def map_view() -> rx.Component:
                         lng=ResearchState.map_center_lng,
                     ),
                     zoom=2.0,
-                    height="500px",
+                    height="100%",
                     width="100%",
                 ),
                 class_name=rx.cond(
                     ResearchState.dark_mode,
-                    "relative rounded-2xl overflow-hidden border-2 border-gray-800 shadow-xl",
-                    "relative rounded-2xl overflow-hidden border-2 border-gray-200 shadow-xl",
+                    "relative flex-1 min-h-[420px] rounded-2xl overflow-hidden border-2 border-gray-800 shadow-xl",
+                    "relative flex-1 min-h-[420px] rounded-2xl overflow-hidden border-2 border-gray-200 shadow-xl",
                 ),
             ),
             rx.el.div(
@@ -571,7 +571,7 @@ def map_view() -> rx.Component:
         ),
         class_name=rx.cond(
             ResearchState.dark_mode,
-            "bg-gray-900 border border-gray-800 rounded-2xl p-5",
-            "bg-white border border-gray-200 rounded-2xl p-5 shadow-sm",
+            "bg-gray-900 border border-gray-800 rounded-2xl p-5 flex flex-col min-h-0 flex-1",
+            "bg-white border border-gray-200 rounded-2xl p-5 shadow-sm flex flex-col min-h-0 flex-1",
         ),
     )

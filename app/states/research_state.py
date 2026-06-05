@@ -84,7 +84,9 @@ def init_db():
                 completeness INTEGER,
                 image_url TEXT DEFAULT '',
                 article_title TEXT DEFAULT '',
-                is_living INTEGER DEFAULT 0
+                is_living INTEGER DEFAULT 0,
+                occupation TEXT DEFAULT '',
+                description TEXT DEFAULT ''
             )
         """)
         # Safe migration: add new columns if missing on older DBs
@@ -111,6 +113,20 @@ def init_db():
                 )
             except Exception as e:
                 logging.exception(f"Erro ao migrar coluna is_living: {e}")
+        if "occupation" not in cols:
+            try:
+                cursor.execute(
+                    "ALTER TABLE people ADD COLUMN occupation TEXT DEFAULT ''"
+                )
+            except Exception as e:
+                logging.exception(f"Erro ao migrar coluna occupation: {e}")
+        if "description" not in cols:
+            try:
+                cursor.execute(
+                    "ALTER TABLE people ADD COLUMN description TEXT DEFAULT ''"
+                )
+            except Exception as e:
+                logging.exception(f"Erro ao migrar coluna description: {e}")
         cursor.execute("""
             CREATE TABLE IF NOT EXISTS history (
                 id INTEGER PRIMARY KEY AUTOINCREMENT,
@@ -134,8 +150,8 @@ def save_person_db(p: dict):
             """
             INSERT OR REPLACE INTO people (
                 id, name, nationality, birth_date, death_date, birth_place, death_place,
-                birth_lat, birth_lng, death_lat, death_lng, article_url, summary, searched_at, completeness, image_url, article_title, is_living
-            ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+                birth_lat, birth_lng, death_lat, death_lng, article_url, summary, searched_at, completeness, image_url, article_title, is_living, occupation, description
+            ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
         """,
             (
                 p["id"],
@@ -156,6 +172,8 @@ def save_person_db(p: dict):
                 p.get("image_url", ""),
                 p.get("article_title", ""),
                 1 if p.get("is_living", False) else 0,
+                p.get("occupation", ""),
+                p.get("description", ""),
             ),
         )
         conn.commit()
@@ -194,6 +212,12 @@ def load_people_db() -> list:
             is_living = False
             if "is_living" in col_names:
                 is_living = bool(r["is_living"])
+            occupation = ""
+            if "occupation" in col_names:
+                occupation = r["occupation"] or ""
+            description = ""
+            if "description" in col_names:
+                description = r["description"] or ""
             out.append(
                 {
                     "id": r["id"],
@@ -214,6 +238,8 @@ def load_people_db() -> list:
                     "image_url": image_url,
                     "article_title": article_title,
                     "is_living": is_living,
+                    "occupation": occupation,
+                    "description": description,
                 }
             )
         conn.close()
@@ -302,6 +328,8 @@ class PersonRecord(TypedDict):
     image_url: str
     article_title: str
     is_living: bool
+    occupation: str
+    description: str
 
 
 class HistoryEntry(TypedDict):
@@ -414,6 +442,69 @@ def _strip_html(text: str) -> str:
     return excerpt
 
 
+def _format_preview_extract(raw_text: str, max_chars: int = 520) -> str:
+    if not raw_text:
+        return ""
+    text = _html.unescape(raw_text)
+    text = re.sub(r"<[^>]+>", " ", text)
+    text = re.sub(r"\{\{[^{}]*\}\}", " ", text)
+    text = re.sub(r"\[\[[^\[\]]*\]\]", " ", text)
+    text = re.sub(r"\[\d+\]", " ", text)
+    text = re.sub(r"\s+", " ", text).strip()
+    text = re.sub(r"^[\s,;:.\-—–·•\)\]\}\"'`]+", "", text)
+    text = re.sub(r"[\s,;:\-—–·•\(\[\{\"'`]+$", "", text)
+    if not text:
+        return ""
+    leading_stopwords = (
+        "da ",
+        "de ",
+        "do ",
+        "dos ",
+        "das ",
+        "e ",
+        "em ",
+        "no ",
+        "na ",
+        "nos ",
+        "nas ",
+        "ao ",
+        "aos ",
+        "à ",
+        "às ",
+        "por ",
+        "para ",
+        "com ",
+        "que ",
+        "se ",
+        "um ",
+        "uma ",
+    )
+    if text[0].islower() or text.lower().startswith(leading_stopwords):
+        m = re.search(r"[.!?…]\s+(?:[-–—]\s*)?([A-ZÁÉÍÓÚÂÊÔÃÕÇÀ0-9])", text)
+        if m:
+            text = text[m.start(1) :].strip()
+    text = re.sub(r"\s+([,.;:!?])", r"\1", text)
+    text = re.sub(r"([.!?…]){2,}", r"\1", text)
+    if len(text) <= max_chars:
+        if text and text[-1] not in ".!?…":
+            text = text + "."
+        return text
+    truncated = text[:max_chars]
+    # Look for last sentence terminator followed by space (full sentence end)
+    boundaries = [m.end() for m in re.finditer(r"[.!?…](?:\s|$)", truncated)]
+    if boundaries:
+        last = boundaries[-1]
+        result = truncated[:last].rstrip()
+        if result and result[-1] not in ".!?…":
+            result = result + "."
+        if len(result) >= 100:
+            return result
+    cut = truncated.rsplit(" ", 1)[0].rstrip(",;:-—–·• ")
+    if cut and cut[-1] not in ".!?…":
+        cut = cut + "…"
+    return cut
+
+
 def _parse_wd_time(time_str: str) -> str:
     if not time_str:
         return ""
@@ -488,7 +579,7 @@ def _wiki_article(title: str) -> dict | None:
             "prop": "extracts|pageprops|info|pageimages",
             "exintro": 1,
             "explaintext": 1,
-            "exchars": 800,
+            "exchars": 1500,
             "ppprop": "wikibase_item|disambiguation",
             "inprop": "url",
             "piprop": "thumbnail|original|name",
@@ -807,6 +898,94 @@ SUGGESTION_POOL: list[str] = [
 ]
 
 
+SUGGESTION_CATEGORIES: list[str] = [
+    "Categoria:Escritores do Brasil",
+    "Categoria:Poetas do Brasil",
+    "Categoria:Pintores do Brasil",
+    "Categoria:Cientistas do Brasil",
+    "Categoria:Políticos do Brasil",
+    "Categoria:Compositores do Brasil",
+    "Categoria:Atores do Brasil",
+    "Categoria:Escritores de Portugal",
+    "Categoria:Poetas de Portugal",
+    "Categoria:Cientistas de Portugal",
+    "Categoria:Físicos",
+    "Categoria:Matemáticos",
+    "Categoria:Filósofos",
+    "Categoria:Músicos do Brasil",
+    "Categoria:Cantores do Brasil",
+    "Categoria:Arquitetos do Brasil",
+    "Categoria:Historiadores do Brasil",
+    "Categoria:Jornalistas do Brasil",
+    "Categoria:Astrônomos",
+    "Categoria:Inventores",
+    "Categoria:Exploradores",
+]
+
+
+_LOWQUALITY_RE = re.compile(
+    r"\b(lista|anexo|categoria|wikipédia|wikipedia|desambiguação|índice)\b",
+    re.IGNORECASE,
+)
+
+
+def _fetch_dynamic_suggestions(target_count: int = 7) -> list[str]:
+    import random
+
+    chosen_cats = random.sample(
+        SUGGESTION_CATEGORIES, k=min(5, len(SUGGESTION_CATEGORIES))
+    )
+    collected: list[str] = []
+    seen: set[str] = set()
+    for cat in chosen_cats:
+        try:
+            data = _api_get(
+                WIKI_API,
+                {
+                    "action": "query",
+                    "generator": "categorymembers",
+                    "gcmtitle": cat,
+                    "gcmnamespace": "0",
+                    "gcmlimit": "20",
+                    "prop": "pageprops",
+                    "ppprop": "wikibase_item|disambiguation",
+                    "format": "json",
+                },
+                timeout=8,
+            )
+            if not data:
+                continue
+            pages = list(
+                (data.get("query", {}).get("pages", {}) or {}).values()
+            )
+            for p in pages:
+                title = (p.get("title") or "").strip()
+                if not title or title in seen:
+                    continue
+                if _LOWQUALITY_RE.search(title):
+                    continue
+                if ":" in title:
+                    continue
+                pp = p.get("pageprops", {}) or {}
+                if "disambiguation" in pp:
+                    continue
+                # Require Wikidata link as a quality signal
+                if not pp.get("wikibase_item"):
+                    continue
+                seen.add(title)
+                collected.append(title)
+        except Exception as e:
+            logging.exception(f"Erro ao buscar sugestões em {cat}: {e}")
+            continue
+    if len(collected) < target_count:
+        # Top up with fallback pool
+        fallback = [s for s in SUGGESTION_POOL if s not in seen]
+        random.shuffle(fallback)
+        collected.extend(fallback[: target_count - len(collected)])
+    random.shuffle(collected)
+    return collected[:target_count]
+
+
 class ResearchState(rx.State):
     dark_mode: bool = False
     search_query: str = ""
@@ -866,9 +1045,17 @@ class ResearchState(rx.State):
 
         await asyncio.to_thread(init_db)
         try:
-            self.dynamic_suggestions = random.sample(SUGGESTION_POOL, k=7)
+            live = await asyncio.to_thread(_fetch_dynamic_suggestions, 7)
+            if live and len(live) >= 4:
+                self.dynamic_suggestions = live
+            else:
+                self.dynamic_suggestions = random.sample(SUGGESTION_POOL, k=7)
         except Exception as e:
             logging.exception(f"Erro ao gerar sugestões dinâmicas: {e}")
+            try:
+                self.dynamic_suggestions = random.sample(SUGGESTION_POOL, k=7)
+            except Exception as e2:
+                logging.exception(f"Erro no fallback de sugestões: {e2}")
         try:
             self.people = await asyncio.to_thread(load_people_db)
             self.history = await asyncio.to_thread(load_history_db)
@@ -923,27 +1110,40 @@ class ResearchState(rx.State):
         name = (person.get("name") or "").strip()
         title = (person.get("article_title") or "").strip()
         ctx = ""
-        if title and title.lower() != name.lower():
+        # 1) Wikidata occupation (most reliable disambiguation)
+        occ = (person.get("occupation") or "").strip()
+        if occ:
+            ctx = occ
+        # 2) Article title parenthetical (e.g. "John Smith (poet)")
+        if not ctx and title and title.lower() != name.lower():
             m = re.search(r"\(([^)]+)\)", title)
             if m:
                 ctx = m.group(1).strip()
-            else:
-                ctx = title
+        # 3) Wikidata short description (concise, multi-language)
+        if not ctx:
+            desc = (person.get("description") or "").strip()
+            if desc:
+                ctx = desc
+        # 4) Article title without parenthetical (rarely needed)
+        if not ctx and title and title.lower() != name.lower():
+            ctx = title
+        # 5) First sentence of Wikipedia summary
         if not ctx:
             summ = (person.get("summary") or "").strip()
             if summ and summ != "—":
                 first = re.split(r"[\.;\n]", summ, maxsplit=1)[0].strip()
                 first = re.sub(r"\s+", " ", first)
                 if first:
-                    if len(first) > 70:
-                        first = first[:70].rsplit(" ", 1)[0] + "…"
+                    if len(first) > 100:
+                        first = first[:100].rsplit(" ", 1)[0] + "…"
                     ctx = first
+        # 6) Nationality as last resort
         if not ctx:
             nat = (person.get("nationality") or "").strip()
             if nat and nat != "—":
                 ctx = nat
-        if len(ctx) > 80:
-            ctx = ctx[:80].rsplit(" ", 1)[0] + "…"
+        if len(ctx) > 110:
+            ctx = ctx[:110].rsplit(" ", 1)[0] + "…"
         return ctx
 
     @rx.var
@@ -996,7 +1196,8 @@ class ResearchState(rx.State):
 
     @rx.var
     def enriched_history(self) -> list[EnrichedHistoryEntry]:
-        # Map article title -> (qid, ctx) using current people for homonym context
+        # Build lookups including homonym status, so context_label is only
+        # rendered when the matched personality is actually homonymous.
         title_index: dict[str, list[dict]] = {}
         for ep in self.people_enriched:
             t = (
@@ -1007,28 +1208,37 @@ class ResearchState(rx.State):
             if not t:
                 continue
             title_index.setdefault(t, []).append(
-                {"qid": ep["id"], "ctx": ep.get("context_label", "")}
+                {
+                    "qid": ep["id"],
+                    "ctx": ep.get("context_label", ""),
+                    "is_homonym": bool(ep.get("is_homonym", False)),
+                }
             )
-        # Also index by raw name in case title not stored
         name_index: dict[str, list[dict]] = {}
         for ep in self.people_enriched:
             n = (ep.get("name") or "").strip().lower()
             if not n:
                 continue
             name_index.setdefault(n, []).append(
-                {"qid": ep["id"], "ctx": ep.get("context_label", "")}
+                {
+                    "qid": ep["id"],
+                    "ctx": ep.get("context_label", ""),
+                    "is_homonym": bool(ep.get("is_homonym", False)),
+                }
             )
         out: list[EnrichedHistoryEntry] = []
         for h in self.history:
             title = (h.get("title") or "").strip()
             key_t = title.lower()
-            key_n = title.lower()
             short = ""
             ctx = ""
-            matches = title_index.get(key_t) or name_index.get(key_n) or []
+            matches = title_index.get(key_t) or name_index.get(key_t) or []
             if len(matches) >= 1:
                 short = _short_qid(matches[0]["qid"])
-                ctx = matches[0]["ctx"]
+                # Only expose disambiguation context when the matched
+                # personality is actually homonymous in the current dataset.
+                if matches[0].get("is_homonym"):
+                    ctx = matches[0]["ctx"]
             out.append(
                 {
                     "term": h.get("term", ""),
@@ -1845,7 +2055,11 @@ class ResearchState(rx.State):
 
         page_title = page.get("title", chosen)
         extract_raw = page.get("extract", "") or ""
-        extract = _strip_html(extract_raw) or extract_raw
+        extract = (
+            _format_preview_extract(extract_raw)
+            or _strip_html(extract_raw)
+            or extract_raw
+        )
         page_url = page.get("fullurl") or (
             f"https://pt.wikipedia.org/wiki/{page_title.replace(' ', '_')}"
         )
@@ -1982,10 +2196,44 @@ class ResearchState(rx.State):
         nat_qid = _claim_qid(claims, "P27")
         is_living = (not death_date) and (not death_qid)
 
-        ref_qids = [q for q in [birth_qid, death_qid, nat_qid] if q]
+        # Occupations (P106) — primary source for disambiguation context
+        occupation_qids: list[str] = []
+        for c in claims.get("P106", []) or []:
+            try:
+                snak = c.get("mainsnak", {}) or {}
+                if snak.get("snaktype") != "value":
+                    continue
+                value = snak.get("datavalue", {}).get("value", {}) or {}
+                qid_o = value.get("id", "") or ""
+                if qid_o and qid_o not in occupation_qids:
+                    occupation_qids.append(qid_o)
+            except (KeyError, TypeError, AttributeError):
+                logging.exception("Erro ao ler ocupação")
+                continue
+        occupation_qids = occupation_qids[:3]
+
+        # Wikidata short description (concise multi-language gloss)
+        descriptions = entity.get("descriptions", {}) or {}
+        wd_description = (
+            (descriptions.get("pt", {}) or {}).get("value")
+            or (descriptions.get("en", {}) or {}).get("value")
+            or ""
+        ).strip()
+
+        ref_qids = [
+            q for q in [birth_qid, death_qid, nat_qid] if q
+        ] + occupation_qids
         ref_entities = (
             await asyncio.to_thread(_wd_entities, ref_qids) if ref_qids else {}
         )
+
+        # Resolve occupation labels (top 2, joined for compact display)
+        occupation_labels: list[str] = []
+        for q in occupation_qids:
+            lbl = _label_of(ref_entities.get(q))
+            if lbl and lbl not in occupation_labels:
+                occupation_labels.append(lbl)
+        occupation = ", ".join(occupation_labels[:2])
 
         birth_place = (
             _label_of(ref_entities.get(birth_qid)) if birth_qid else ""
@@ -2071,6 +2319,8 @@ class ResearchState(rx.State):
             "image_url": image_url,
             "article_title": article_title,
             "is_living": is_living,
+            "occupation": occupation,
+            "description": wd_description,
         }
 
         self.is_extracting = False

@@ -1,19 +1,19 @@
-# Correções de Cabeçalho, Legibilidade, Datas e Ambiguidade
+# Ajustes de Mapa, Legibilidade, Histórico e Desambiguação Inteligente
 
-## Phase 1: Estrutura Visual e Legibilidade ✅
-- [x] Remover repetição de cabeçalho na área autenticada.
-- [x] Aumentar a escala tipográfica geral para reduzir sensação de zoom distante.
-- [x] Reequilibrar espaçamentos para manter a página confortável sem prejudicar o encaixe na tela.
-- [x] Preservar o visual moderno, claro/escuro, navegação e responsividade.
+## Phase 1: Mapa em Tela Cheia e Legibilidade ✅
+- [x] Expandir a visualização do mapa para ocupar o máximo da área disponível sem corte e sem barra de rolagem global.
+- [x] Reposicionar controles e cartões sobrepostos do mapa para evitar colisões visuais.
+- [x] Aumentar a escala tipográfica geral e de textos secundários para melhorar leitura à distância normal.
+- [x] Preservar responsividade, modo claro/escuro e visual moderno com acento azul.
 
-## Phase 2: Datas, Descrições e Ambiguidade ✅
-- [x] Padronizar datas exibidas em formato brasileiro em listas, cartões, histórico, tabela, linha do tempo e exportação.
-- [x] Melhorar a limpeza das descrições de resultados de busca para evitar fragmentos e pontuação solta.
-- [x] Reforçar diferenciação de homônimos com título contextual e identificador em todos os pontos críticos.
-- [x] Evitar cortes indevidos em informações de desambiguação, oferecendo leitura completa quando necessário.
+## Phase 2: Histórico, Pré-visualização e Desambiguação ✅
+- [x] Ajustar histórico recente para exibir subtexto contextual somente quando a personalidade for homônima.
+- [x] Exibir na pré-visualização do artigo um trecho mais completo e coerente, preferindo fechamento em ponto final.
+- [x] Melhorar desambiguação com contexto mais útil, priorizando profissão/atividade quando disponível.
+- [x] Evitar excesso visual mantendo tooltips ou linhas secundárias para contexto completo.
 
-## Phase 3: Validação dos Ajustes ✅
-- [x] Validar renderização sem cabeçalho duplicado.
-- [x] Validar formatação brasileira de datas e CSV.
-- [x] Validar snippets limpos, homônimos e informações de desambiguação completas.
-- [x] Garantir que busca, extração, persistência, mapa, dashboard, tabela, análises e autenticação continuem funcionando.
+## Phase 3: Sugestões Dinâmicas e Validação ✅
+- [x] Substituir nomes fixos das sugestões por sugestões renovadas dinamicamente a partir de dados públicos.
+- [x] Garantir fallback resiliente quando a fonte externa estiver indisponível.
+- [x] Validar mapa sem sobreposição, fontes maiores, histórico condicional, pré-visualização, desambiguação e sugestões.
+- [x] Garantir que busca, extração, persistência, mapa, tabela, análises, exportação e autenticação continuem funcionando.
