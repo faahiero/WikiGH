@@ -1,19 +1,18 @@
-# Ajustes de Mapa, Legibilidade, Histórico e Desambiguação Inteligente
+# Ajustes de Foco no Mapa, Fluxo de Busca e Desambiguação Curta
 
-## Phase 1: Mapa em Tela Cheia e Legibilidade ✅
-- [x] Expandir a visualização do mapa para ocupar o máximo da área disponível sem corte e sem barra de rolagem global.
-- [x] Reposicionar controles e cartões sobrepostos do mapa para evitar colisões visuais.
-- [x] Aumentar a escala tipográfica geral e de textos secundários para melhorar leitura à distância normal.
-- [x] Preservar responsividade, modo claro/escuro e visual moderno com acento azul.
+## Phase 1: Interação do Mapa e Foco Rápido ✅
+- [x] Centralizar o mapa automaticamente no ponto relevante ao selecionar uma pessoa pelo foco rápido.
+- [x] Manter os marcadores e conexões da pessoa selecionada visíveis após a seleção.
+- [x] Preservar o layout expandido do mapa sem cortes e sem rolagem global.
 
-## Phase 2: Histórico, Pré-visualização e Desambiguação ✅
-- [x] Ajustar histórico recente para exibir subtexto contextual somente quando a personalidade for homônima.
-- [x] Exibir na pré-visualização do artigo um trecho mais completo e coerente, preferindo fechamento em ponto final.
-- [x] Melhorar desambiguação com contexto mais útil, priorizando profissão/atividade quando disponível.
-- [x] Evitar excesso visual mantendo tooltips ou linhas secundárias para contexto completo.
+## Phase 2: Fluxo de Busca e Pré-visualização ✅
+- [x] Remover o bloco redundante de sugestões da área vazia da busca, mantendo apenas as sugestões guiadas do topo.
+- [x] Exibir avatar genérico consistente quando a pré-visualização do artigo não tiver imagem.
+- [x] Reorganizar o resultado selecionado para que a pré-visualização fique imediatamente acessível sem exigir rolagem manual.
+- [x] Preservar estados de carregamento, erros e mensagens informativas.
 
-## Phase 3: Sugestões Dinâmicas e Validação ✅
-- [x] Substituir nomes fixos das sugestões por sugestões renovadas dinamicamente a partir de dados públicos.
-- [x] Garantir fallback resiliente quando a fonte externa estiver indisponível.
-- [x] Validar mapa sem sobreposição, fontes maiores, histórico condicional, pré-visualização, desambiguação e sugestões.
-- [x] Garantir que busca, extração, persistência, mapa, tabela, análises, exportação e autenticação continuem funcionando.
+## Phase 3: Desambiguação Curta e Validação ✅
+- [x] Tornar o contexto de desambiguação curto e direto, priorizando profissão ou área de atuação.
+- [x] Evitar textos longos truncados em cartões, chips, histórico, mapa, tabela e linha do tempo.
+- [x] Validar seleção no mapa, fluxo de busca, avatar genérico, pré-visualização e contexto curto.
+- [x] Garantir que busca, extração, persistência, exportação, autenticação e visualizações existentes continuem funcionando.

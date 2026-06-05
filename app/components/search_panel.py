@@ -156,21 +156,6 @@ def empty_state() -> rx.Component:
                 "text-sm text-gray-500 mt-1 text-center max-w-sm mx-auto",
             ),
         ),
-        rx.el.div(
-            rx.el.span(
-                "Sugestões:",
-                class_name=rx.cond(
-                    ResearchState.dark_mode,
-                    "text-xs text-gray-400",
-                    "text-xs text-gray-500",
-                ),
-            ),
-            rx.foreach(
-                ResearchState.dynamic_suggestions[0:4],
-                suggestion_button,
-            ),
-            class_name="flex items-center justify-center gap-2 mt-5 flex-wrap",
-        ),
         class_name="py-10",
     )
 
@@ -204,7 +189,15 @@ def preview_panel() -> rx.Component:
                             "h-16 w-16 rounded-lg bg-gray-100 object-cover border border-gray-200 shrink-0",
                         ),
                     ),
-                    rx.fragment(),
+                    rx.el.img(
+                        src=f"https://api.dicebear.com/9.x/notionists/svg?seed={ResearchState.selected_preview['title']}",
+                        alt=ResearchState.selected_preview["title"],
+                        class_name=rx.cond(
+                            ResearchState.dark_mode,
+                            "h-16 w-16 rounded-lg bg-gray-800 border border-gray-700 shrink-0",
+                            "h-16 w-16 rounded-lg bg-gray-100 border border-gray-200 shrink-0",
+                        ),
+                    ),
                 ),
                 rx.el.div(
                     rx.el.span(
@@ -516,6 +509,23 @@ def search_panel() -> rx.Component:
             ),
             rx.fragment(),
         ),
+        rx.cond(
+            ResearchState.is_loading_article,
+            rx.el.div(
+                rx.el.div(
+                    class_name=rx.cond(
+                        ResearchState.dark_mode,
+                        "h-32 rounded-xl bg-gray-800 animate-pulse mt-5",
+                        "h-32 rounded-xl bg-gray-100 animate-pulse mt-5",
+                    ),
+                ),
+            ),
+            rx.cond(
+                ResearchState.has_preview,
+                rx.el.div(preview_panel(), class_name="mt-5"),
+                rx.fragment(),
+            ),
+        ),
         rx.el.div(
             rx.cond(
                 ResearchState.is_searching,
@@ -524,7 +534,11 @@ def search_panel() -> rx.Component:
                     ResearchState.has_results,
                     rx.el.div(
                         rx.el.p(
-                            "Resultados encontrados",
+                            rx.cond(
+                                ResearchState.has_preview,
+                                "Outros resultados",
+                                "Resultados encontrados",
+                            ),
                             class_name=rx.cond(
                                 ResearchState.dark_mode,
                                 "text-xs font-semibold uppercase tracking-wider text-gray-400 mb-2",
@@ -538,27 +552,14 @@ def search_panel() -> rx.Component:
                             class_name="space-y-2",
                         ),
                     ),
-                    empty_state(),
-                ),
-            ),
-            class_name="mt-5",
-        ),
-        rx.cond(
-            ResearchState.is_loading_article,
-            rx.el.div(
-                rx.el.div(
-                    class_name=rx.cond(
-                        ResearchState.dark_mode,
-                        "h-32 rounded-xl bg-gray-800 animate-pulse mt-4",
-                        "h-32 rounded-xl bg-gray-100 animate-pulse mt-4",
+                    rx.cond(
+                        ResearchState.has_preview,
+                        rx.fragment(),
+                        empty_state(),
                     ),
                 ),
             ),
-            rx.cond(
-                ResearchState.has_preview,
-                rx.el.div(preview_panel(), class_name="mt-4"),
-                rx.fragment(),
-            ),
+            class_name="mt-5",
         ),
         class_name=rx.cond(
             ResearchState.dark_mode,

@@ -318,6 +318,18 @@ def selected_location_overlay() -> rx.Component:
 
 
 def selectable_person_chip(person) -> rx.Component:
+    map_api = rxe.map.api("geo-map")
+    target_coords = rx.cond(
+        (person["birth_lat"] != 0.0) | (person["birth_lng"] != 0.0),
+        latlng(lat=person["birth_lat"], lng=person["birth_lng"]),
+        latlng(lat=person["death_lat"], lng=person["death_lng"]),
+    )
+    has_any_coords = (
+        (person["birth_lat"] != 0.0)
+        | (person["birth_lng"] != 0.0)
+        | (person["death_lat"] != 0.0)
+        | (person["death_lng"] != 0.0)
+    )
     return rx.el.button(
         rx.cond(
             person["image_url"] != "",

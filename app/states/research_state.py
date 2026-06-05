@@ -1107,44 +1107,83 @@ class ResearchState(rx.State):
         self.table_search = value
 
     def _build_context_label(self, person: dict) -> str:
+        """Build a short, direct disambiguation phrase.
+
+        Priority:
+        1) Wikidata occupation labels (e.g. "política, jurista", "poeta, jornalista").
+        2) Short article title parenthetical (e.g. "(escritor)") if concise.
+        3) Compact phrase derived from Wikidata short description, focused on
+           profession/role keywords; otherwise a tight prefix.
+        4) Nationality as a last resort.
+
+        The visible label is always capped to a short phrase (~48 chars) and
+        normalized (lowercase profession-style, single separators).
+        """
+        max_len = 48
+
+        def _normalize(s: str) -> str:
+            s = re.sub(r"\s+", " ", s or "").strip()
+            # Normalize separators: " e " stays, but " / " or "; " become ", "
+            s = re.sub(r"\s*[/;]\s*", ", ", s)
+            s = re.sub(r"\s*,\s*", ", ", s)
+            s = s.strip(" ,.;:-—–·•")
+            return s
+
+        def _shorten(s: str) -> str:
+            s = _normalize(s)
+            if not s:
+                return ""
+            if len(s) <= max_len:
+                return s
+            # Cut at last comma or space within budget for clean phrase
+            cut = s[:max_len]
+            for sep in (", ", " e ", " "):
+                idx = cut.rfind(sep)
+                if idx >= 16:
+                    return cut[:idx].rstrip(" ,.;:-—–·•")
+            return cut.rstrip(" ,.;:-—–·•")
+
         name = (person.get("name") or "").strip()
         title = (person.get("article_title") or "").strip()
-        ctx = ""
-        # 1) Wikidata occupation (most reliable disambiguation)
-        occ = (person.get("occupation") or "").strip()
+
+        # 1) Wikidata occupation labels — most direct, profession-style.
+        occ = _normalize(person.get("occupation") or "")
         if occ:
-            ctx = occ
-        # 2) Article title parenthetical (e.g. "John Smith (poet)")
-        if not ctx and title and title.lower() != name.lower():
+            return _shorten(occ)
+
+        # 2) Article title parenthetical, if short and informative.
+        if title and title.lower() != name.lower():
             m = re.search(r"\(([^)]+)\)", title)
             if m:
-                ctx = m.group(1).strip()
-        # 3) Wikidata short description (concise, multi-language)
-        if not ctx:
-            desc = (person.get("description") or "").strip()
-            if desc:
-                ctx = desc
-        # 4) Article title without parenthetical (rarely needed)
-        if not ctx and title and title.lower() != name.lower():
-            ctx = title
-        # 5) First sentence of Wikipedia summary
-        if not ctx:
-            summ = (person.get("summary") or "").strip()
-            if summ and summ != "—":
-                first = re.split(r"[\.;\n]", summ, maxsplit=1)[0].strip()
-                first = re.sub(r"\s+", " ", first)
-                if first:
-                    if len(first) > 100:
-                        first = first[:100].rsplit(" ", 1)[0] + "…"
-                    ctx = first
-        # 6) Nationality as last resort
-        if not ctx:
-            nat = (person.get("nationality") or "").strip()
-            if nat and nat != "—":
-                ctx = nat
-        if len(ctx) > 110:
-            ctx = ctx[:110].rsplit(" ", 1)[0] + "…"
-        return ctx
+                paren = _normalize(m.group(1))
+                if paren and len(paren) <= max_len:
+                    return paren
+
+        # 3) Compact phrase from Wikidata short description.
+        desc = _normalize(person.get("description") or "")
+        if desc:
+            # Drop leading articles/qualifiers commonly seen in pt/en glosses.
+            stripped = re.sub(
+                r"^(?:é\s+)?(?:um|uma|uns|umas|o|a|os|as|the|an|a)\s+",
+                "",
+                desc,
+                flags=re.IGNORECASE,
+            )
+            # Take phrase up to first comma / dash / parenthesis if long.
+            if len(stripped) > max_len:
+                m = re.search(r"[,;\-–—\(]", stripped)
+                if m and m.start() >= 6:
+                    stripped = stripped[: m.start()]
+            stripped = _normalize(stripped)
+            if stripped:
+                return _shorten(stripped)
+
+        # 4) Nationality fallback.
+        nat = _normalize(person.get("nationality") or "")
+        if nat and nat != "—":
+            return _shorten(nat)
+
+        return ""
 
     @rx.var
     def people_enriched(self) -> list[EnrichedPerson]:
