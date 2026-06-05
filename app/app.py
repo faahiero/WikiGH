@@ -480,21 +480,22 @@ def authenticated_app() -> rx.Component:
         sidebar(),
         rx.el.div(
             topbar(),
+            topbar(),
             rx.el.div(
                 main_content(),
-                class_name="px-6 lg:px-8 py-6",
+                class_name="px-4 lg:px-6 py-4 flex-1 overflow-y-auto",
             ),
             class_name=rx.cond(
                 ResearchState.dark_mode,
-                "flex-1 min-w-0 flex flex-col bg-gray-950",
-                "flex-1 min-w-0 flex flex-col bg-gray-50",
+                "flex-1 min-w-0 flex flex-col bg-gray-950 h-screen overflow-hidden",
+                "flex-1 min-w-0 flex flex-col bg-gray-50 h-screen overflow-hidden",
             ),
         ),
         dark_mode_toggle_floating(),
         class_name=rx.cond(
             ResearchState.dark_mode,
-            "flex min-h-screen bg-gray-950 text-gray-100 relative",
-            "flex min-h-screen bg-gray-50 text-gray-900 relative",
+            "flex h-screen overflow-hidden bg-gray-950 text-gray-100 relative",
+            "flex h-screen overflow-hidden bg-gray-50 text-gray-900 relative",
         ),
     )
 

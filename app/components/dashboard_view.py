@@ -173,13 +173,43 @@ def latest_person_row(person) -> rx.Component:
             ),
         ),
         rx.el.div(
-            rx.el.p(
-                person["name"],
-                class_name=rx.cond(
-                    ResearchState.dark_mode,
-                    "text-sm font-semibold text-gray-100 text-left truncate",
-                    "text-sm font-semibold text-gray-900 text-left truncate",
+            rx.el.div(
+                rx.el.p(
+                    person["name"],
+                    class_name=rx.cond(
+                        ResearchState.dark_mode,
+                        "text-sm font-semibold text-gray-100 text-left truncate",
+                        "text-sm font-semibold text-gray-900 text-left truncate",
+                    ),
                 ),
+                rx.cond(
+                    person["is_homonym"],
+                    rx.el.span(
+                        rx.icon(
+                            "split", class_name="h-2.5 w-2.5 text-amber-600"
+                        ),
+                        class_name=rx.cond(
+                            ResearchState.dark_mode,
+                            "inline-flex items-center justify-center h-4 w-4 rounded-full bg-amber-950/40 border border-amber-900 shrink-0",
+                            "inline-flex items-center justify-center h-4 w-4 rounded-full bg-amber-50 border border-amber-100 shrink-0",
+                        ),
+                        title="Personalidade homônima",
+                    ),
+                    rx.fragment(),
+                ),
+                class_name="flex items-center gap-1.5",
+            ),
+            rx.cond(
+                person["is_homonym"] & (person["context_label"] != ""),
+                rx.el.p(
+                    person["context_label"],
+                    class_name=rx.cond(
+                        ResearchState.dark_mode,
+                        "text-[10px] text-amber-300 italic truncate text-left",
+                        "text-[10px] text-amber-700 italic truncate text-left",
+                    ),
+                ),
+                rx.fragment(),
             ),
             rx.el.div(
                 rx.el.span(

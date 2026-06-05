@@ -1,19 +1,19 @@
-# Correções de Tema, Dados Biográficos, Exportação e Mapa
+# Ajustes de Layout, Homônimos, Resultados e Sugestões
 
-## Phase 1: Tema Global, Qualidade dos Dados e Exportação ✅
-- [x] Aplicar modo noturno de forma consistente tanto na página pública quanto na área autenticada.
-- [x] Diferenciar pessoas homônimas usando título/artigo, identificador e contexto biográfico para evitar registros visualmente indistinguíveis.
-- [x] Ajustar a análise de campos ausentes para tratar pessoas vivas sem penalizar ausência de falecimento.
-- [x] Corrigir a exportação para gerar CSV limpo apenas com dados estruturados.
+## Phase 1: Layout Sem Rolagem e Densidade Responsiva ✅
+- [x] Ajustar a estrutura geral para reduzir rolagem vertical e manter as principais áreas dentro da altura visível.
+- [x] Reduzir alturas excessivas, espaçamentos e áreas fixas que causam overflow em telas comuns.
+- [x] Tornar painéis internos roláveis apenas quando necessário, evitando rolagem global da página.
+- [x] Preservar legibilidade, responsividade, navegação e consistência visual em modo claro e escuro.
 
-## Phase 2: Experiência Cartográfica Avançada ✅
-- [x] Evitar sobreposição visual entre marcadores de nascimento e falecimento no mesmo local.
-- [x] Fazer o foco rápido filtrar o mapa para exibir apenas a personalidade selecionada.
-- [x] Criar ligação visual elegante entre locais de nascimento e falecimento quando ambos existirem.
-- [x] Preservar legenda, contexto, métricas e experiência responsiva do mapa.
+## Phase 2: Clareza de Homônimos e Resultados de Pesquisa ✅
+- [x] Melhorar a diferenciação visual de personalidades homônimas em listas, histórico, foco rápido, tabela, linha do tempo e mapa.
+- [x] Exibir contexto curto do artigo e identificador de forma consistente sem poluir a interface.
+- [x] Limpar descrições de resultados de pesquisa para reduzir trechos desconexos ou iniciados no meio de frases.
+- [x] Preservar o fluxo de seleção, pré-visualização, extração e persistência.
 
-## Phase 3: Validação dos Fluxos Corrigidos ✅
-- [x] Validar alternância de tema nas áreas pública e autenticada.
-- [x] Validar cálculo de completude/campos ausentes para pessoas vivas e falecidas.
-- [x] Validar exportação CSV limpa e seleção/foco do mapa.
-- [x] Garantir que busca, extração, persistência, análises, tabela e navegação continuem funcionando.
+## Phase 3: Sugestões Guiadas Dinâmicas e Validação ✅
+- [x] Substituir sugestões fixas por um conjunto dinâmico renovado no carregamento da página.
+- [x] Garantir que sugestões também funcionem na landing/app e mantenham buscas acionáveis.
+- [x] Validar layout, homônimos, snippets limpos, sugestões dinâmicas e fluxos principais.
+- [x] Garantir que busca, extração, mapa, tabela, análises, exportação e autenticação continuem funcionando.

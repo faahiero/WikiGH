@@ -1,6 +1,7 @@
 import reflex as rx
 import logging
 import re
+import html as _html
 import asyncio
 import requests
 import sqlite3
@@ -270,7 +271,24 @@ class HistoryEntry(TypedDict):
 
 
 def _strip_html(text: str) -> str:
-    return re.sub(r"<[^>]+>", "", text or "").strip()
+    if not text:
+        return ""
+    text = _html.unescape(text)
+    text = re.sub(r"<[^>]+>", " ", text)
+    text = re.sub(r"\s+", " ", text).strip()
+    text = re.sub(r"^[\s,;:.\-—–·•·\)\]\}\"'`]+", "", text)
+    text = re.sub(r"[\s,;:\-—–·•·\(\[\{\"'`]+$", "", text)
+    if text and text[0].islower():
+        m = re.search(r"[.!?]\s+([A-ZÁÉÍÓÚÂÊÔÃÕÇÀ])", text)
+        if m and m.start() < 80:
+            text = text[m.start() + 1 :].strip()
+    if len(text) > 240:
+        cut = text[:240].rsplit(" ", 1)[0]
+        cut = cut.rstrip(",;:-—–·• ")
+        text = cut + "…"
+    elif text and text[-1] not in ".!?…":
+        text = text + "…"
+    return text
 
 
 def _parse_wd_time(time_str: str) -> str:
@@ -456,7 +474,6 @@ def _claim_time(claims: dict, prop: str) -> str:
         return ""
 
 
-# Helper functions refactored out of the async generator to avoid linting errors
 async def _fallback_coords(
     place_qid: str, ref_entities: dict
 ) -> tuple[float, float] | None:
@@ -498,6 +515,35 @@ class MapPoint(TypedDict):
     lng: float
     kind: str
     image_url: str
+    context_label: str
+    is_homonym: bool
+    short_id: str
+    display_name: str
+
+
+class EnrichedPerson(TypedDict):
+    id: str
+    name: str
+    nationality: str
+    birth_date: str
+    death_date: str
+    birth_place: str
+    death_place: str
+    birth_lat: float
+    birth_lng: float
+    death_lat: float
+    death_lng: float
+    article_url: str
+    summary: str
+    searched_at: str
+    completeness: int
+    image_url: str
+    article_title: str
+    is_living: bool
+    context_label: str
+    is_homonym: bool
+    short_id: str
+    display_name: str
 
 
 class MapConnection(TypedDict):
@@ -518,6 +564,10 @@ class TimelineEvent(TypedDict):
     date: str
     place: str
     kind: str
+    context_label: str
+    is_homonym: bool
+    short_id: str
+    display_name: str
 
 
 class DistRow(TypedDict):
@@ -525,11 +575,87 @@ class DistRow(TypedDict):
     count: int
 
 
+SUGGESTION_POOL: list[str] = [
+    "Fernando Pessoa",
+    "Machado de Assis",
+    "Marie Curie",
+    "Carlos Drummond de Andrade",
+    "Clarice Lispector",
+    "Albert Einstein",
+    "Cecília Meireles",
+    "Jorge Amado",
+    "Graciliano Ramos",
+    "Guimarães Rosa",
+    "Nelson Mandela",
+    "Frida Kahlo",
+    "Leonardo da Vinci",
+    "Galileu Galilei",
+    "Isaac Newton",
+    "Charles Darwin",
+    "Sigmund Freud",
+    "Tom Jobim",
+    "Heitor Villa-Lobos",
+    "Oscar Niemeyer",
+    "Tarsila do Amaral",
+    "Cândido Portinari",
+    "Lima Barreto",
+    "Mário de Andrade",
+    "Olavo Bilac",
+    "Castro Alves",
+    "José de Alencar",
+    "Eça de Queirós",
+    "Camilo Castelo Branco",
+    "Luís de Camões",
+    "Sophia de Mello Breyner",
+    "José Saramago",
+    "Florbela Espanca",
+    "Almeida Garrett",
+    "Antero de Quental",
+    "Pablo Picasso",
+    "Vincent van Gogh",
+    "Salvador Dalí",
+    "Frédéric Chopin",
+    "Ludwig van Beethoven",
+    "Wolfgang Amadeus Mozart",
+    "Johann Sebastian Bach",
+    "Mahatma Gandhi",
+    "Martin Luther King Jr.",
+    "Winston Churchill",
+    "Napoleão Bonaparte",
+    "Simone de Beauvoir",
+    "Virginia Woolf",
+    "Jane Austen",
+    "Emily Dickinson",
+    "Gabriel García Márquez",
+    "Pablo Neruda",
+    "Jorge Luis Borges",
+    "Octavio Paz",
+    "Princesa Isabel",
+    "Dom Pedro II",
+    "Tiradentes",
+    "Zumbi dos Palmares",
+    "Anita Garibaldi",
+    "Chiquinha Gonzaga",
+    "Santos Dumont",
+    "Juscelino Kubitschek",
+    "Getúlio Vargas",
+]
+
+
 class ResearchState(rx.State):
     dark_mode: bool = False
     search_query: str = ""
     is_searching: bool = False
     landing_mode: bool = True  # True if showing public landing page, False if showing protected dashboard
+    dynamic_suggestions: list[str] = [
+        "Fernando Pessoa",
+        "Machado de Assis",
+        "Marie Curie",
+        "Carlos Drummond de Andrade",
+        "Clarice Lispector",
+        "Albert Einstein",
+        "Cecília Meireles",
+    ]
 
     @rx.event
     def toggle_dark_mode(self):
@@ -571,7 +697,13 @@ class ResearchState(rx.State):
 
     @rx.event
     async def load_data(self):
+        import random
+
         await asyncio.to_thread(init_db)
+        try:
+            self.dynamic_suggestions = random.sample(SUGGESTION_POOL, k=7)
+        except Exception as e:
+            logging.exception(f"Erro ao gerar sugestões dinâmicas: {e}")
         try:
             self.people = await asyncio.to_thread(load_people_db)
             self.history = await asyncio.to_thread(load_history_db)
@@ -622,20 +754,96 @@ class ResearchState(rx.State):
     def set_table_search(self, value: str):
         self.table_search = value
 
+    def _build_context_label(self, person: dict) -> str:
+        name = (person.get("name") or "").strip()
+        title = (person.get("article_title") or "").strip()
+        ctx = ""
+        if title and title.lower() != name.lower():
+            m = re.search(r"\(([^)]+)\)", title)
+            if m:
+                ctx = m.group(1).strip()
+            else:
+                ctx = title
+        if not ctx:
+            summ = (person.get("summary") or "").strip()
+            if summ and summ != "—":
+                first = re.split(r"[\.;\n]", summ, maxsplit=1)[0].strip()
+                first = re.sub(r"\s+", " ", first)
+                if first:
+                    if len(first) > 70:
+                        first = first[:70].rsplit(" ", 1)[0] + "…"
+                    ctx = first
+        if not ctx:
+            nat = (person.get("nationality") or "").strip()
+            if nat and nat != "—":
+                ctx = nat
+        if len(ctx) > 80:
+            ctx = ctx[:80].rsplit(" ", 1)[0] + "…"
+        return ctx
+
+    @rx.var
+    def people_enriched(self) -> list[EnrichedPerson]:
+        name_counts: dict[str, int] = {}
+        for p in self.people:
+            key = (p.get("name") or "").strip().lower()
+            if key:
+                name_counts[key] = name_counts.get(key, 0) + 1
+        out: list[EnrichedPerson] = []
+        for p in self.people:
+            key = (p.get("name") or "").strip().lower()
+            is_hom = name_counts.get(key, 0) > 1
+            ctx = self._build_context_label(p)
+            pid = p.get("id") or ""
+            short_id = (
+                pid if pid and len(pid) <= 8 else (pid[-6:] if pid else "")
+            )
+            display_name = p.get("name") or "—"
+            if is_hom and ctx:
+                display_name = f"{display_name} ({ctx})"
+            out.append(
+                {
+                    "id": p["id"],
+                    "name": p["name"],
+                    "nationality": p["nationality"],
+                    "birth_date": p["birth_date"],
+                    "death_date": p["death_date"],
+                    "birth_place": p["birth_place"],
+                    "death_place": p["death_place"],
+                    "birth_lat": float(p["birth_lat"]),
+                    "birth_lng": float(p["birth_lng"]),
+                    "death_lat": float(p["death_lat"]),
+                    "death_lng": float(p["death_lng"]),
+                    "article_url": p["article_url"],
+                    "summary": p["summary"],
+                    "searched_at": p["searched_at"],
+                    "completeness": int(p["completeness"]),
+                    "image_url": p.get("image_url", ""),
+                    "article_title": p.get("article_title", ""),
+                    "is_living": bool(p.get("is_living", False)),
+                    "context_label": ctx,
+                    "is_homonym": is_hom,
+                    "short_id": short_id,
+                    "display_name": display_name,
+                }
+            )
+        return out
+
+    def _enriched_lookup(self) -> dict[str, EnrichedPerson]:
+        return {ep["id"]: ep for ep in self.people_enriched}
+
     @rx.var
     def map_points(self) -> list[MapPoint]:
         points: list[MapPoint] = []
-        # If a person is focused, show only their markers
         focus_id = self.selected_person_id
-        people_iter = self.people
+        enriched = self.people_enriched
         if focus_id:
-            people_iter = [p for p in self.people if p["id"] == focus_id]
-        # Offset constant ~ small (~700m on equator) to disambiguate overlapping points
+            enriched_iter = [p for p in enriched if p["id"] == focus_id]
+        else:
+            enriched_iter = enriched
         offset = 0.0065
-        for p in people_iter:
+        for p in enriched_iter:
             has_birth = p["birth_lat"] != 0.0 or p["birth_lng"] != 0.0
             has_death = p["death_lat"] != 0.0 or p["death_lng"] != 0.0
-            # Detect near-overlap
             overlap = False
             if has_birth and has_death:
                 if (
@@ -643,6 +851,10 @@ class ResearchState(rx.State):
                     and abs(p["birth_lng"] - p["death_lng"]) < 0.001
                 ):
                     overlap = True
+            ctx = p.get("context_label", "")
+            is_hom = bool(p.get("is_homonym", False))
+            short_id = p.get("short_id", "")
+            display_name = p.get("display_name", p["name"])
             if has_birth:
                 blat = p["birth_lat"]
                 blng = p["birth_lng"]
@@ -659,6 +871,10 @@ class ResearchState(rx.State):
                         "lng": blng,
                         "kind": "Nascimento",
                         "image_url": p.get("image_url", ""),
+                        "context_label": ctx,
+                        "is_homonym": is_hom,
+                        "short_id": short_id,
+                        "display_name": display_name,
                     }
                 )
             if has_death:
@@ -677,6 +893,10 @@ class ResearchState(rx.State):
                         "lng": dlng,
                         "kind": "Falecimento",
                         "image_url": p.get("image_url", ""),
+                        "context_label": ctx,
+                        "is_homonym": is_hom,
+                        "short_id": short_id,
+                        "display_name": display_name,
                     }
                 )
         return points
@@ -742,7 +962,12 @@ class ResearchState(rx.State):
     @rx.var
     def timeline_events(self) -> list[TimelineEvent]:
         events: list[TimelineEvent] = []
-        for p in self.people:
+        enriched = self.people_enriched
+        for p in enriched:
+            ctx = p.get("context_label", "")
+            is_hom = bool(p.get("is_homonym", False))
+            short_id = p.get("short_id", "")
+            display_name = p.get("display_name", p["name"])
             if p["birth_date"] and p["birth_date"] != "—":
                 try:
                     year = int(p["birth_date"][:4])
@@ -755,6 +980,10 @@ class ResearchState(rx.State):
                             "date": p["birth_date"],
                             "place": p["birth_place"],
                             "kind": "Nascimento",
+                            "context_label": ctx,
+                            "is_homonym": is_hom,
+                            "short_id": short_id,
+                            "display_name": display_name,
                         }
                     )
                 except ValueError:
@@ -771,6 +1000,10 @@ class ResearchState(rx.State):
                             "date": p["death_date"],
                             "place": p["death_place"],
                             "kind": "Falecimento",
+                            "context_label": ctx,
+                            "is_homonym": is_hom,
+                            "short_id": short_id,
+                            "display_name": display_name,
                         }
                     )
                 except ValueError:
@@ -788,7 +1021,7 @@ class ResearchState(rx.State):
 
     @rx.var
     def selected_person(self) -> dict[str, str]:
-        for p in self.people:
+        for p in self.people_enriched:
             if p["id"] == self.selected_person_id:
                 return {
                     "id": p["id"],
@@ -801,6 +1034,11 @@ class ResearchState(rx.State):
                     "summary": p["summary"],
                     "article_url": p["article_url"],
                     "image_url": p.get("image_url", ""),
+                    "context_label": p.get("context_label", ""),
+                    "short_id": p.get("short_id", ""),
+                    "display_name": p.get("display_name", p["name"]),
+                    "is_homonym": "true" if p.get("is_homonym") else "false",
+                    "article_title": p.get("article_title", ""),
                 }
         return {
             "id": "",
@@ -813,6 +1051,11 @@ class ResearchState(rx.State):
             "summary": "",
             "article_url": "",
             "image_url": "",
+            "context_label": "",
+            "short_id": "",
+            "display_name": "",
+            "is_homonym": "false",
+            "article_title": "",
         }
 
     @rx.var
@@ -886,8 +1129,8 @@ class ResearchState(rx.State):
         )
 
     @rx.var
-    def dashboard_latest_people(self) -> list[PersonRecord]:
-        return self.people[:5]
+    def dashboard_latest_people(self) -> list[EnrichedPerson]:
+        return self.people_enriched[:5]
 
     @rx.var
     def dashboard_recent_history(self) -> list[HistoryEntry]:
@@ -1145,21 +1388,23 @@ class ResearchState(rx.State):
 
     @rx.var
     def gender_balance_unknown(self) -> int:
-        # Wikidata gender not extracted; report unknown count
         return len(self.people)
 
     @rx.var
-    def filtered_people(self) -> list[PersonRecord]:
+    def filtered_people(self) -> list[EnrichedPerson]:
         q = self.table_search.strip().lower()
+        enriched = self.people_enriched
         if not q:
-            return self.people
+            return enriched
         return [
             p
-            for p in self.people
+            for p in enriched
             if q in p["name"].lower()
             or q in p["nationality"].lower()
             or q in p["birth_place"].lower()
             or q in p["death_place"].lower()
+            or q in (p.get("context_label") or "").lower()
+            or q in (p.get("article_title") or "").lower()
         ]
 
     @rx.event

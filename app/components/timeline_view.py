@@ -62,14 +62,67 @@ def selected_detail_panel() -> rx.Component:
                                 "text-xl font-bold text-gray-900 mt-1",
                             ),
                         ),
+                        rx.cond(
+                            (
+                                ResearchState.selected_person["is_homonym"]
+                                == "true"
+                            )
+                            & (
+                                ResearchState.selected_person["context_label"]
+                                != ""
+                            ),
+                            rx.el.div(
+                                rx.icon(
+                                    "split",
+                                    class_name="h-3 w-3 text-amber-600",
+                                ),
+                                rx.el.span(
+                                    "Homônimo:",
+                                    class_name=rx.cond(
+                                        ResearchState.dark_mode,
+                                        "text-[10px] font-bold uppercase tracking-wider text-amber-300",
+                                        "text-[10px] font-bold uppercase tracking-wider text-amber-700",
+                                    ),
+                                ),
+                                rx.el.span(
+                                    ResearchState.selected_person[
+                                        "context_label"
+                                    ],
+                                    class_name=rx.cond(
+                                        ResearchState.dark_mode,
+                                        "text-[11px] text-amber-200 truncate",
+                                        "text-[11px] text-amber-800 truncate",
+                                    ),
+                                ),
+                                class_name=rx.cond(
+                                    ResearchState.dark_mode,
+                                    "inline-flex items-center gap-1 px-2 py-0.5 mt-1 rounded-md bg-amber-950/40 border border-amber-900 max-w-full",
+                                    "inline-flex items-center gap-1 px-2 py-0.5 mt-1 rounded-md bg-amber-50 border border-amber-100 max-w-full",
+                                ),
+                            ),
+                            rx.fragment(),
+                        ),
                         rx.el.p(
                             ResearchState.selected_person["nationality"],
                             class_name=rx.cond(
                                 ResearchState.dark_mode,
-                                "text-sm text-gray-400",
-                                "text-sm text-gray-500",
+                                "text-sm text-gray-400 mt-0.5",
+                                "text-sm text-gray-500 mt-0.5",
                             ),
                         ),
+                        rx.cond(
+                            ResearchState.selected_person["short_id"] != "",
+                            rx.el.span(
+                                ResearchState.selected_person["short_id"],
+                                class_name=rx.cond(
+                                    ResearchState.dark_mode,
+                                    "text-[10px] font-mono text-blue-300 mt-0.5 inline-block",
+                                    "text-[10px] font-mono text-blue-600 mt-0.5 inline-block",
+                                ),
+                            ),
+                            rx.fragment(),
+                        ),
+                        class_name="flex flex-col",
                     ),
                     class_name="flex items-start gap-3",
                 ),
@@ -245,6 +298,28 @@ def narrative_timeline_event(event) -> rx.Component:
                         "text-sm font-bold text-gray-100 leading-tight",
                         "text-sm font-bold text-gray-900 leading-tight",
                     ),
+                ),
+                rx.cond(
+                    event["is_homonym"] & (event["context_label"] != ""),
+                    rx.el.div(
+                        rx.icon(
+                            "split", class_name="h-2.5 w-2.5 text-amber-600"
+                        ),
+                        rx.el.span(
+                            event["context_label"],
+                            class_name=rx.cond(
+                                ResearchState.dark_mode,
+                                "text-[10px] text-amber-200 truncate",
+                                "text-[10px] text-amber-800 truncate",
+                            ),
+                        ),
+                        class_name=rx.cond(
+                            ResearchState.dark_mode,
+                            "inline-flex items-center gap-1 px-1.5 py-0.5 mt-1 rounded bg-amber-950/40 border border-amber-900 max-w-full",
+                            "inline-flex items-center gap-1 px-1.5 py-0.5 mt-1 rounded bg-amber-50 border border-amber-100 max-w-full",
+                        ),
+                    ),
+                    rx.fragment(),
                 ),
                 rx.el.div(
                     rx.icon(
@@ -450,7 +525,7 @@ def timeline_view() -> rx.Component:
                     rx.foreach(
                         ResearchState.timeline_events, narrative_timeline_event
                     ),
-                    class_name="flex flex-col gap-2 max-h-[640px] overflow-y-auto pr-1 relative",
+                    class_name="flex flex-col gap-2 max-h-[480px] overflow-y-auto pr-1 relative",
                 ),
                 rx.el.div(
                     rx.el.div(

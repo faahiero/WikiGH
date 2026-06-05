@@ -37,8 +37,8 @@ def topbar() -> rx.Component:
                     ),
                     class_name=rx.cond(
                         ResearchState.dark_mode,
-                        "text-2xl font-bold text-gray-100 leading-tight",
-                        "text-2xl font-bold text-gray-900 leading-tight",
+                        "text-lg font-bold text-gray-100 leading-tight",
+                        "text-lg font-bold text-gray-900 leading-tight",
                     ),
                 ),
                 rx.el.p(
@@ -46,15 +46,15 @@ def topbar() -> rx.Component:
                         ResearchState.active_view,
                         (
                             "dashboard",
-                            "Visão geral da composição biográfica, ações rápidas e indicadores principais.",
+                            "Visão geral da composição biográfica e indicadores.",
                         ),
                         (
                             "research",
-                            "Ferramenta de pesquisa baseada na Wikipédia para visualizações geográficas e históricas.",
+                            "Pesquisa baseada na Wikipédia.",
                         ),
                         (
                             "map",
-                            "Distribuição espacial dos locais de nascimento e falecimento.",
+                            "Distribuição espacial de nascimento e falecimento.",
                         ),
                         (
                             "timeline",
@@ -62,7 +62,7 @@ def topbar() -> rx.Component:
                         ),
                         (
                             "analytics",
-                            "Estatísticas sobre nacionalidades, séculos e completude.",
+                            "Estatísticas e completude.",
                         ),
                         (
                             "table",
@@ -72,8 +72,8 @@ def topbar() -> rx.Component:
                     ),
                     class_name=rx.cond(
                         ResearchState.dark_mode,
-                        "text-sm text-gray-400 mt-0.5",
-                        "text-sm text-gray-500 mt-0.5",
+                        "text-xs text-gray-400 mt-0.5 hidden md:block",
+                        "text-xs text-gray-500 mt-0.5 hidden md:block",
                     ),
                 ),
             ),
@@ -200,7 +200,7 @@ def topbar() -> rx.Component:
                 ),
                 class_name="flex items-center gap-2",
             ),
-            class_name="flex items-center justify-between gap-4 px-8 py-5",
+            class_name="flex items-center justify-between gap-3 px-6 py-3",
         ),
         class_name=rx.cond(
             ResearchState.dark_mode,

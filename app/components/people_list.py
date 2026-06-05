@@ -70,21 +70,50 @@ def person_card(person) -> rx.Component:
             class_name="flex items-start justify-between",
         ),
         rx.cond(
-            (person["article_title"] != "")
-            & (person["article_title"] != person["name"]),
+            person["is_homonym"],
             rx.el.div(
-                rx.icon("file-text", class_name="h-3 w-3 text-gray-400"),
+                rx.icon("split", class_name="h-3 w-3 text-amber-600 shrink-0"),
                 rx.el.span(
-                    person["article_title"],
+                    "Homônimo",
                     class_name=rx.cond(
                         ResearchState.dark_mode,
-                        "text-[10px] text-gray-400 italic truncate",
-                        "text-[10px] text-gray-500 italic truncate",
+                        "text-[9px] font-bold uppercase tracking-wider text-amber-300",
+                        "text-[9px] font-bold uppercase tracking-wider text-amber-700",
                     ),
                 ),
-                class_name="flex items-center gap-1 mt-2",
+                rx.el.span(
+                    person["context_label"],
+                    class_name=rx.cond(
+                        ResearchState.dark_mode,
+                        "text-[10px] text-amber-200 truncate",
+                        "text-[10px] text-amber-800 truncate",
+                    ),
+                ),
+                class_name=rx.cond(
+                    ResearchState.dark_mode,
+                    "inline-flex items-center gap-1 px-1.5 py-0.5 mt-2 rounded-md bg-amber-950/40 border border-amber-900 max-w-full",
+                    "inline-flex items-center gap-1 px-1.5 py-0.5 mt-2 rounded-md bg-amber-50 border border-amber-100 max-w-full",
+                ),
             ),
-            rx.fragment(),
+            rx.cond(
+                (person["article_title"] != "")
+                & (person["article_title"] != person["name"]),
+                rx.el.div(
+                    rx.icon(
+                        "file-text", class_name="h-3 w-3 text-gray-400 shrink-0"
+                    ),
+                    rx.el.span(
+                        person["article_title"],
+                        class_name=rx.cond(
+                            ResearchState.dark_mode,
+                            "text-[10px] text-gray-400 italic truncate",
+                            "text-[10px] text-gray-500 italic truncate",
+                        ),
+                    ),
+                    class_name="flex items-center gap-1 mt-2",
+                ),
+                rx.fragment(),
+            ),
         ),
         rx.cond(
             person["is_living"],
@@ -173,7 +202,7 @@ def person_card(person) -> rx.Component:
                         class_name="h-1.5 w-1.5 rounded-full bg-amber-500"
                     ),
                     rx.el.span(
-                        f"Dados parciais ({person['completeness']}%%)",
+                        f"Dados parciais ({person['completeness']}%)",
                         class_name=rx.cond(
                             ResearchState.dark_mode,
                             "text-[10px] font-medium text-amber-300",
@@ -249,7 +278,7 @@ def people_list() -> rx.Component:
         rx.cond(
             ResearchState.total_people > 0,
             rx.el.div(
-                rx.foreach(ResearchState.people, person_card),
+                rx.foreach(ResearchState.people_enriched, person_card),
                 class_name="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-3 gap-4",
             ),
             rx.el.div(
@@ -266,8 +295,8 @@ def people_list() -> rx.Component:
                     "Confirme um artigo na busca para começar sua composição.",
                     class_name=rx.cond(
                         ResearchState.dark_mode,
-                        "text-xs text-gray-500 text-center mt-1",
-                        "text-xs text-gray-400 text-center mt-1",
+                        "text-xs text-gray-505 text-center mt-1",
+                        "text-xs text-gray-404 text-center mt-1",
                     ),
                 ),
                 class_name=rx.cond(

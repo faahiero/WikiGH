@@ -164,9 +164,10 @@ def empty_state() -> rx.Component:
                     "text-xs text-gray-500",
                 ),
             ),
-            suggestion_button("Fernando Pessoa"),
-            suggestion_button("Machado de Assis"),
-            suggestion_button("Marie Curie"),
+            rx.foreach(
+                ResearchState.dynamic_suggestions[0:4],
+                suggestion_button,
+            ),
             class_name="flex items-center justify-center gap-2 mt-5 flex-wrap",
         ),
         class_name="py-10",
@@ -398,13 +399,10 @@ def guided_chips_bar() -> rx.Component:
             class_name="flex items-center gap-1.5 mb-2",
         ),
         rx.el.div(
-            suggestion_button("Fernando Pessoa"),
-            suggestion_button("Machado de Assis"),
-            suggestion_button("Marie Curie"),
-            suggestion_button("Carlos Drummond de Andrade"),
-            suggestion_button("Clarice Lispector"),
-            suggestion_button("Albert Einstein"),
-            suggestion_button("Cecília Meireles"),
+            rx.foreach(
+                ResearchState.dynamic_suggestions,
+                suggestion_button,
+            ),
             class_name="flex items-center gap-1.5 flex-wrap",
         ),
         class_name=rx.cond(

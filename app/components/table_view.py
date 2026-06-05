@@ -42,6 +42,29 @@ def table_row(person) -> rx.Component:
                             ),
                         ),
                         rx.cond(
+                            person["is_homonym"],
+                            rx.el.span(
+                                rx.icon(
+                                    "split",
+                                    class_name="h-2.5 w-2.5 text-amber-600",
+                                ),
+                                rx.el.span(
+                                    "Homônimo",
+                                    class_name=rx.cond(
+                                        ResearchState.dark_mode,
+                                        "text-[9px] font-bold uppercase tracking-wider text-amber-300",
+                                        "text-[9px] font-bold uppercase tracking-wider text-amber-700",
+                                    ),
+                                ),
+                                class_name=rx.cond(
+                                    ResearchState.dark_mode,
+                                    "inline-flex items-center gap-0.5 px-1.5 py-0.5 rounded-full bg-amber-950/40 border border-amber-900",
+                                    "inline-flex items-center gap-0.5 px-1.5 py-0.5 rounded-full bg-amber-50 border border-amber-100",
+                                ),
+                            ),
+                            rx.fragment(),
+                        ),
+                        rx.cond(
                             person["is_living"],
                             rx.el.span(
                                 "Vivo(a)",
@@ -53,7 +76,19 @@ def table_row(person) -> rx.Component:
                             ),
                             rx.fragment(),
                         ),
-                        class_name="flex items-center gap-1.5",
+                        class_name="flex items-center gap-1.5 flex-wrap",
+                    ),
+                    rx.cond(
+                        person["is_homonym"] & (person["context_label"] != ""),
+                        rx.el.p(
+                            person["context_label"],
+                            class_name=rx.cond(
+                                ResearchState.dark_mode,
+                                "text-[11px] text-amber-300 italic truncate max-w-[260px]",
+                                "text-[11px] text-amber-700 italic truncate max-w-[260px]",
+                            ),
+                        ),
+                        rx.fragment(),
                     ),
                     rx.el.div(
                         rx.el.span(

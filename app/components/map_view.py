@@ -36,11 +36,38 @@ def map_marker(point) -> rx.Component:
                             class_name="h-10 w-10 rounded-full bg-gray-100 shrink-0",
                         ),
                     ),
-                    rx.el.p(
-                        point["name"],
-                        class_name="text-sm font-bold text-gray-900",
+                    rx.el.div(
+                        rx.el.p(
+                            point["name"],
+                            class_name="text-sm font-bold text-gray-900 leading-tight",
+                        ),
+                        rx.cond(
+                            point["is_homonym"]
+                            & (point["context_label"] != ""),
+                            rx.el.div(
+                                rx.icon(
+                                    "split",
+                                    class_name="h-2.5 w-2.5 text-amber-700",
+                                ),
+                                rx.el.span(
+                                    point["context_label"],
+                                    class_name="text-[10px] text-amber-800 truncate",
+                                ),
+                                class_name="inline-flex items-center gap-1 px-1.5 py-0.5 mt-0.5 rounded bg-amber-50 border border-amber-100 max-w-[180px]",
+                            ),
+                            rx.fragment(),
+                        ),
+                        rx.cond(
+                            point["short_id"] != "",
+                            rx.el.span(
+                                point["short_id"],
+                                class_name="text-[9px] font-mono text-blue-600 mt-0.5 block",
+                            ),
+                            rx.fragment(),
+                        ),
+                        class_name="min-w-0",
                     ),
-                    class_name="flex items-center gap-2",
+                    class_name="flex items-start gap-2",
                 ),
                 rx.el.div(
                     rx.cond(
@@ -67,7 +94,7 @@ def map_marker(point) -> rx.Component:
                 class_name="min-w-[200px]",
             )
         ),
-        rxe.map.tooltip(point["name"]),
+        rxe.map.tooltip(point["display_name"]),
         position=latlng(lat=point["lat"], lng=point["lng"]),
     )
 
@@ -220,9 +247,33 @@ def selected_location_overlay() -> rx.Component:
                         ResearchState.selected_person["name"],
                         class_name="text-sm font-bold text-gray-900 truncate",
                     ),
-                    rx.el.p(
-                        ResearchState.selected_person["nationality"],
-                        class_name="text-xs text-gray-500 truncate",
+                    rx.cond(
+                        (ResearchState.selected_person["is_homonym"] == "true")
+                        & (
+                            ResearchState.selected_person["context_label"] != ""
+                        ),
+                        rx.el.div(
+                            rx.icon(
+                                "split", class_name="h-2.5 w-2.5 text-amber-700"
+                            ),
+                            rx.el.span(
+                                ResearchState.selected_person["context_label"],
+                                class_name="text-[10px] text-amber-800 truncate",
+                            ),
+                            class_name="inline-flex items-center gap-1 px-1.5 py-0.5 mt-0.5 rounded bg-amber-50 border border-amber-100 max-w-full",
+                        ),
+                        rx.el.p(
+                            ResearchState.selected_person["nationality"],
+                            class_name="text-xs text-gray-500 truncate",
+                        ),
+                    ),
+                    rx.cond(
+                        ResearchState.selected_person["short_id"] != "",
+                        rx.el.span(
+                            ResearchState.selected_person["short_id"],
+                            class_name="text-[10px] font-mono text-blue-600 mt-0.5 block",
+                        ),
+                        rx.fragment(),
                     ),
                     class_name="flex-1 min-w-0",
                 ),
@@ -274,7 +325,23 @@ def selectable_person_chip(person) -> rx.Component:
         ),
         rx.el.span(
             person["name"],
-            class_name="text-xs font-medium text-gray-700 truncate",
+            class_name="text-xs font-medium truncate max-w-[140px]",
+        ),
+        rx.cond(
+            person["is_homonym"] & (person["context_label"] != ""),
+            rx.el.span(
+                person["context_label"],
+                class_name=rx.cond(
+                    ResearchState.selected_person_id == person["id"],
+                    "text-[9px] font-medium px-1.5 py-0.5 rounded bg-white/20 text-white truncate max-w-[80px]",
+                    rx.cond(
+                        ResearchState.dark_mode,
+                        "text-[9px] font-medium px-1.5 py-0.5 rounded bg-amber-950/60 border border-amber-900 text-amber-200 truncate max-w-[80px]",
+                        "text-[9px] font-medium px-1.5 py-0.5 rounded bg-amber-50 border border-amber-100 text-amber-800 truncate max-w-[80px]",
+                    ),
+                ),
+            ),
+            rx.fragment(),
         ),
         on_click=rx.cond(
             ResearchState.selected_person_id == person["id"],
@@ -286,8 +353,8 @@ def selectable_person_chip(person) -> rx.Component:
             "inline-flex items-center gap-1.5 px-2 py-1 rounded-full bg-blue-600 text-white border border-blue-700 shrink-0",
             rx.cond(
                 ResearchState.dark_mode,
-                "inline-flex items-center gap-1.5 px-2 py-1 rounded-full bg-gray-800 border border-gray-700 hover:border-blue-700 shrink-0",
-                "inline-flex items-center gap-1.5 px-2 py-1 rounded-full bg-white border border-gray-200 hover:border-blue-300 shrink-0",
+                "inline-flex items-center gap-1.5 px-2 py-1 rounded-full bg-gray-800 border border-gray-700 hover:border-blue-700 text-gray-300 shrink-0",
+                "inline-flex items-center gap-1.5 px-2 py-1 rounded-full bg-white border border-gray-200 hover:border-blue-300 text-gray-700 shrink-0",
             ),
         ),
     )
@@ -314,6 +381,19 @@ def focus_banner() -> rx.Component:
                         "text-[11px] font-bold text-blue-300",
                         "text-[11px] font-bold text-blue-700",
                     ),
+                ),
+                rx.cond(
+                    (ResearchState.selected_person["is_homonym"] == "true")
+                    & (ResearchState.selected_person["context_label"] != ""),
+                    rx.el.span(
+                        ResearchState.selected_person["context_label"],
+                        class_name=rx.cond(
+                            ResearchState.dark_mode,
+                            "text-[10px] font-medium px-1.5 py-0.5 rounded bg-amber-950/40 border border-amber-900 text-amber-200 truncate max-w-[140px]",
+                            "text-[10px] font-medium px-1.5 py-0.5 rounded bg-amber-50 border border-amber-100 text-amber-800 truncate max-w-[140px]",
+                        ),
+                    ),
+                    rx.fragment(),
                 ),
                 class_name="flex items-center gap-1.5 min-w-0",
             ),
@@ -407,7 +487,7 @@ def map_view() -> rx.Component:
                     ),
                     rx.el.div(
                         rx.foreach(
-                            ResearchState.people,
+                            ResearchState.people_enriched,
                             selectable_person_chip,
                         ),
                         class_name="flex items-center gap-1.5 overflow-x-auto pb-1",
@@ -440,7 +520,7 @@ def map_view() -> rx.Component:
                         lng=ResearchState.map_center_lng,
                     ),
                     zoom=2.0,
-                    height="720px",
+                    height="500px",
                     width="100%",
                 ),
                 class_name=rx.cond(
