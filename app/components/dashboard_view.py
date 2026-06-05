@@ -222,7 +222,8 @@ def latest_person_row(person) -> rx.Component:
                 ),
                 rx.el.span("•", class_name="text-xs text-gray-300"),
                 rx.el.span(
-                    person["birth_date"],
+                    person["birth_date_br"],
+                    title=person["birth_date"],
                     class_name="text-xs text-gray-400 font-mono",
                 ),
                 class_name="flex items-center gap-1.5 mt-0.5",
@@ -330,10 +331,13 @@ def latest_people_panel() -> rx.Component:
 def recent_search_row(entry) -> rx.Component:
     return rx.el.div(
         rx.el.div(
-            rx.icon("search", class_name="h-3.5 w-3.5 text-gray-400 mt-0.5"),
+            rx.icon(
+                "search", class_name="h-3.5 w-3.5 text-gray-400 mt-0.5 shrink-0"
+            ),
             rx.el.div(
                 rx.el.p(
                     entry["term"],
+                    title=entry["term"],
                     class_name=rx.cond(
                         ResearchState.dark_mode,
                         "text-sm font-medium text-gray-100 truncate",
@@ -342,11 +346,38 @@ def recent_search_row(entry) -> rx.Component:
                 ),
                 rx.el.p(
                     f"→ {entry['title']}",
+                    title=entry["title"],
                     class_name=rx.cond(
                         ResearchState.dark_mode,
                         "text-xs text-gray-400 truncate",
                         "text-xs text-gray-500 truncate",
                     ),
+                ),
+                rx.cond(
+                    entry["context_label"] != "",
+                    rx.el.p(
+                        entry["context_label"],
+                        title=entry["context_label"],
+                        class_name=rx.cond(
+                            ResearchState.dark_mode,
+                            "text-[10px] text-amber-300 italic truncate",
+                            "text-[10px] text-amber-700 italic truncate",
+                        ),
+                    ),
+                    rx.fragment(),
+                ),
+                rx.cond(
+                    entry["short_id"] != "",
+                    rx.el.span(
+                        entry["short_id"],
+                        title=f"Wikidata: {entry['short_id']}",
+                        class_name=rx.cond(
+                            ResearchState.dark_mode,
+                            "inline-block text-[9px] font-mono text-blue-300 bg-blue-950/40 border border-blue-900 px-1.5 py-0.5 rounded mt-0.5",
+                            "inline-block text-[9px] font-mono text-blue-700 bg-blue-50 border border-blue-100 px-1.5 py-0.5 rounded mt-0.5",
+                        ),
+                    ),
+                    rx.fragment(),
                 ),
                 class_name="min-w-0",
             ),
@@ -362,15 +393,16 @@ def recent_search_row(entry) -> rx.Component:
                 ),
             ),
             rx.el.span(
-                entry["timestamp"],
+                entry["timestamp_br"],
+                title=entry["timestamp"],
                 class_name="text-[10px] text-gray-400 font-mono mt-0.5",
             ),
             class_name="text-right shrink-0 flex flex-col items-end",
         ),
         class_name=rx.cond(
             ResearchState.dark_mode,
-            "flex items-center justify-between gap-3 py-2.5 border-b border-gray-800 last:border-0",
-            "flex items-center justify-between gap-3 py-2.5 border-b border-gray-100 last:border-0",
+            "flex items-start justify-between gap-3 py-2.5 border-b border-gray-800 last:border-0",
+            "flex items-start justify-between gap-3 py-2.5 border-b border-gray-100 last:border-0",
         ),
     )
 
@@ -459,7 +491,7 @@ def data_quality_panel() -> rx.Component:
             rx.el.div(
                 rx.el.div(
                     rx.el.span(
-                        "Completude média",
+                        "Completude",
                         class_name=rx.cond(
                             ResearchState.dark_mode,
                             "text-xs font-medium text-gray-300",

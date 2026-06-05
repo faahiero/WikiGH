@@ -20,6 +20,47 @@ HEADERS = {"User-Agent": USER_AGENT}
 DB_PATH = Path("geohist.db")
 
 
+def _format_br_date(raw: str) -> str:
+    if not raw:
+        return ""
+    # Pass-through markers
+    if raw in ("—", "Vivo(a)"):
+        return raw
+    s = raw.strip()
+    m = re.match(r"^(\d{4})-(\d{2})-(\d{2})\s+(\d{1,2}:\d{2})$", s)
+    if m:
+        y, mo, d, t = m.groups()
+        return f"{d}/{mo}/{y} {t}"
+    m = re.match(r"^(\d{4})-(\d{2})-(\d{2})$", s)
+    if m:
+        y, mo, d = m.groups()
+        return f"{d}/{mo}/{y}"
+    m = re.match(r"^(\d{4})-(\d{2})$", s)
+    if m:
+        y, mo = m.groups()
+        return f"{mo}/{y}"
+    m = re.match(r"^(\d{4})$", s)
+    if m:
+        return s
+    # Negative year (BC)
+    m = re.match(r"^-(\d+)-(\d{2})-(\d{2})$", s)
+    if m:
+        y, mo, d = m.groups()
+        return f"{d}/{mo}/{y} a.C."
+    m = re.match(r"^-(\d+)$", s)
+    if m:
+        return f"{m.group(1)} a.C."
+    return s
+
+
+def _short_qid(qid: str) -> str:
+    if not qid:
+        return ""
+    if len(qid) <= 10:
+        return qid
+    return qid[-8:]
+
+
 def init_db():
     try:
         conn = sqlite3.connect(DB_PATH)
@@ -273,22 +314,104 @@ class HistoryEntry(TypedDict):
 def _strip_html(text: str) -> str:
     if not text:
         return ""
+    original = text
     text = _html.unescape(text)
+    # Remove HTML tags
     text = re.sub(r"<[^>]+>", " ", text)
+    # Remove wiki templates and links remnants
+    text = re.sub(r"\{\{[^{}]*\}\}", " ", text)
+    text = re.sub(r"\[\[[^\[\]]*\]\]", " ", text)
+    # Remove citation markers like [1], [2]
+    text = re.sub(r"\[\d+\]", " ", text)
+    # Collapse whitespace
     text = re.sub(r"\s+", " ", text).strip()
-    text = re.sub(r"^[\s,;:.\-—–·•·\)\]\}\"'`]+", "", text)
-    text = re.sub(r"[\s,;:\-—–·•·\(\[\{\"'`]+$", "", text)
-    if text and text[0].islower():
-        m = re.search(r"[.!?]\s+([A-ZÁÉÍÓÚÂÊÔÃÕÇÀ])", text)
-        if m and m.start() < 80:
-            text = text[m.start() + 1 :].strip()
-    if len(text) > 240:
-        cut = text[:240].rsplit(" ", 1)[0]
+    # Trim leading/trailing junk punctuation/quotes
+    text = re.sub(r"^[\s,;:.\-—–·•\)\]\}\"'`]+", "", text)
+    text = re.sub(r"[\s,;:\-—–·•\(\[\{\"'`]+$", "", text)
+    if not text:
+        return ""
+    leading_stopwords = (
+        "da ",
+        "de ",
+        "do ",
+        "dos ",
+        "das ",
+        "e ",
+        "em ",
+        "no ",
+        "na ",
+        "nos ",
+        "nas ",
+        "ao ",
+        "aos ",
+        "à ",
+        "às ",
+        "por ",
+        "para ",
+        "com ",
+        "que ",
+        "se ",
+        "um ",
+        "uma ",
+        "uns ",
+        "umas ",
+    )
+    starts_fragment = text[0].islower() or text.lower().startswith(
+        leading_stopwords
+    )
+    if starts_fragment:
+        # Strategy 1: advance to a sentence boundary followed by uppercase/digit
+        m = re.search(r"[.!?…]\s+(?:[-–—]\s*)?([A-ZÁÉÍÓÚÂÊÔÃÕÇÀ0-9])", text)
+        if m:
+            text = text[m.start(1) :].strip()
+        else:
+            # Strategy 2: drop leading fragment through first suitable separator
+            # (period, exclamation, question, ellipsis, semicolon, colon, dash, comma)
+            # and keep the first coherent uppercase/numeric segment.
+            candidates = list(re.finditer(r"(?:[.!?…;:]|\s[-–—]\s|,\s)", text))
+            for sep in candidates[:6]:
+                tail = text[sep.end() :].strip()
+                tail = re.sub(r"^[\s,;:.\-—–·•\)\]\}\"'`]+", "", tail)
+                if tail and (tail[0].isupper() or tail[0].isdigit()):
+                    text = tail
+                    break
+    # Normalize whitespace and punctuation spacing
+    text = re.sub(r"\s+", " ", text).strip()
+    text = re.sub(r"\s+([,.;:!?])", r"\1", text)
+    text = re.sub(r"([.!?…]){2,}", r"\1", text)
+    # Trim again any leading junk after manipulation
+    text = re.sub(r"^[\s,;:.\-—–·•\)\]\}\"'`]+", "", text)
+    text = re.sub(r"[\s,;:\-—–·•\(\[\{\"'`]+$", "", text)
+    if not text:
+        # Last resort: fall back to raw cleaned version of original
+        fallback = re.sub(r"<[^>]+>", " ", _html.unescape(original))
+        fallback = re.sub(r"\s+", " ", fallback).strip()
+        fallback = re.sub(r"^[\s,;:.\-—–·•\)\]\}\"'`]+", "", fallback)
+        fallback = re.sub(r"[\s,;:\-—–·•\(\[\{\"'`]+$", "", fallback)
+        text = fallback
+    if not text:
+        return ""
+    # Prefer first coherent sentence (must not itself start as fragment)
+    sentences = re.split(r"(?<=[.!?…])\s+(?=[A-ZÁÉÍÓÚÂÊÔÃÕÇÀ0-9])", text)
+    first = sentences[0].strip() if sentences else text
+    starts_bad = first and (
+        first[0].islower() or first.lower().startswith(leading_stopwords)
+    )
+    if first and 20 <= len(first) <= 280 and not starts_bad:
+        if first[-1] not in ".!?…":
+            first = first + "."
+        return first
+    # Fall back to a coherent trimmed excerpt; always end naturally
+    excerpt = text
+    if len(excerpt) > 240:
+        cut = excerpt[:240].rsplit(" ", 1)[0]
         cut = cut.rstrip(",;:-—–·• ")
-        text = cut + "…"
-    elif text and text[-1] not in ".!?…":
-        text = text + "…"
-    return text
+        excerpt = cut + "…"
+    else:
+        excerpt = excerpt.rstrip(",;:-—–·• ")
+        if excerpt and excerpt[-1] not in ".!?…":
+            excerpt = excerpt + "…"
+    return excerpt
 
 
 def _parse_wd_time(time_str: str) -> str:
@@ -312,21 +435,48 @@ def _api_get(url: str, params: dict, timeout: int = 10) -> dict | None:
         return None
 
 
+def _sort_by_index_helper(p: dict) -> int:
+    return int(p.get("index", 999))
+
+
 def _wiki_search(term: str, limit: int = 8) -> list[dict] | None:
+    # Use generator search to retrieve clean extracts and ordering
     data = _api_get(
         WIKI_API,
         {
             "action": "query",
-            "list": "search",
-            "srsearch": term,
-            "srnamespace": "0",
-            "srlimit": str(limit),
+            "generator": "search",
+            "gsrsearch": term,
+            "gsrnamespace": "0",
+            "gsrlimit": str(limit),
+            "prop": "extracts|pageprops",
+            "exintro": 1,
+            "explaintext": 1,
+            "exchars": 320,
+            "exlimit": str(limit),
+            "ppprop": "wikibase_item|disambiguation",
             "format": "json",
         },
     )
     if data is None:
         return None
-    return data.get("query", {}).get("search", []) or []
+    pages = data.get("query", {}).get("pages", {}) or {}
+    if not pages:
+        return []
+    # Sort by search index to preserve relevance order
+    items = list(pages.values())
+    items.sort(key=_sort_by_index_helper)
+    out = []
+    for p in items:
+        extract = (p.get("extract") or "").strip()
+        out.append(
+            {
+                "title": p.get("title", ""),
+                "snippet": _strip_html(p.get("snippet", "")),
+                "pageid": int(p.get("pageid", 0)),
+            }
+        )
+    return out
 
 
 def _wiki_article(title: str) -> dict | None:
@@ -511,6 +661,7 @@ class MapPoint(TypedDict):
     name: str
     place: str
     date: str
+    date_br: str
     lat: float
     lng: float
     kind: str
@@ -527,6 +678,8 @@ class EnrichedPerson(TypedDict):
     nationality: str
     birth_date: str
     death_date: str
+    birth_date_br: str
+    death_date_br: str
     birth_place: str
     death_place: str
     birth_lat: float
@@ -536,6 +689,7 @@ class EnrichedPerson(TypedDict):
     article_url: str
     summary: str
     searched_at: str
+    searched_at_br: str
     completeness: int
     image_url: str
     article_title: str
@@ -562,12 +716,23 @@ class TimelineEvent(TypedDict):
     name: str
     year: int
     date: str
+    date_br: str
     place: str
     kind: str
     context_label: str
     is_homonym: bool
     short_id: str
     display_name: str
+
+
+class EnrichedHistoryEntry(TypedDict):
+    term: str
+    title: str
+    timestamp: str
+    timestamp_br: str
+    status: str
+    short_id: str
+    context_label: str
 
 
 class DistRow(TypedDict):
@@ -794,9 +959,7 @@ class ResearchState(rx.State):
             is_hom = name_counts.get(key, 0) > 1
             ctx = self._build_context_label(p)
             pid = p.get("id") or ""
-            short_id = (
-                pid if pid and len(pid) <= 8 else (pid[-6:] if pid else "")
-            )
+            short_id = _short_qid(pid)
             display_name = p.get("name") or "—"
             if is_hom and ctx:
                 display_name = f"{display_name} ({ctx})"
@@ -807,6 +970,8 @@ class ResearchState(rx.State):
                     "nationality": p["nationality"],
                     "birth_date": p["birth_date"],
                     "death_date": p["death_date"],
+                    "birth_date_br": _format_br_date(p["birth_date"]),
+                    "death_date_br": _format_br_date(p["death_date"]),
                     "birth_place": p["birth_place"],
                     "death_place": p["death_place"],
                     "birth_lat": float(p["birth_lat"]),
@@ -816,6 +981,7 @@ class ResearchState(rx.State):
                     "article_url": p["article_url"],
                     "summary": p["summary"],
                     "searched_at": p["searched_at"],
+                    "searched_at_br": _format_br_date(p["searched_at"]),
                     "completeness": int(p["completeness"]),
                     "image_url": p.get("image_url", ""),
                     "article_title": p.get("article_title", ""),
@@ -824,6 +990,54 @@ class ResearchState(rx.State):
                     "is_homonym": is_hom,
                     "short_id": short_id,
                     "display_name": display_name,
+                }
+            )
+        return out
+
+    @rx.var
+    def enriched_history(self) -> list[EnrichedHistoryEntry]:
+        # Map article title -> (qid, ctx) using current people for homonym context
+        title_index: dict[str, list[dict]] = {}
+        for ep in self.people_enriched:
+            t = (
+                (ep.get("article_title") or ep.get("name") or "")
+                .strip()
+                .lower()
+            )
+            if not t:
+                continue
+            title_index.setdefault(t, []).append(
+                {"qid": ep["id"], "ctx": ep.get("context_label", "")}
+            )
+        # Also index by raw name in case title not stored
+        name_index: dict[str, list[dict]] = {}
+        for ep in self.people_enriched:
+            n = (ep.get("name") or "").strip().lower()
+            if not n:
+                continue
+            name_index.setdefault(n, []).append(
+                {"qid": ep["id"], "ctx": ep.get("context_label", "")}
+            )
+        out: list[EnrichedHistoryEntry] = []
+        for h in self.history:
+            title = (h.get("title") or "").strip()
+            key_t = title.lower()
+            key_n = title.lower()
+            short = ""
+            ctx = ""
+            matches = title_index.get(key_t) or name_index.get(key_n) or []
+            if len(matches) >= 1:
+                short = _short_qid(matches[0]["qid"])
+                ctx = matches[0]["ctx"]
+            out.append(
+                {
+                    "term": h.get("term", ""),
+                    "title": title,
+                    "timestamp": h.get("timestamp", ""),
+                    "timestamp_br": _format_br_date(h.get("timestamp", "")),
+                    "status": h.get("status", ""),
+                    "short_id": short,
+                    "context_label": ctx,
                 }
             )
         return out
@@ -867,6 +1081,7 @@ class ResearchState(rx.State):
                         "name": p["name"],
                         "place": p["birth_place"],
                         "date": p["birth_date"],
+                        "date_br": _format_br_date(p["birth_date"]),
                         "lat": blat,
                         "lng": blng,
                         "kind": "Nascimento",
@@ -889,6 +1104,7 @@ class ResearchState(rx.State):
                         "name": p["name"],
                         "place": p["death_place"],
                         "date": p["death_date"],
+                        "date_br": _format_br_date(p["death_date"]),
                         "lat": dlat,
                         "lng": dlng,
                         "kind": "Falecimento",
@@ -978,6 +1194,7 @@ class ResearchState(rx.State):
                             "name": p["name"],
                             "year": year,
                             "date": p["birth_date"],
+                            "date_br": _format_br_date(p["birth_date"]),
                             "place": p["birth_place"],
                             "kind": "Nascimento",
                             "context_label": ctx,
@@ -998,6 +1215,7 @@ class ResearchState(rx.State):
                             "name": p["name"],
                             "year": year,
                             "date": p["death_date"],
+                            "date_br": _format_br_date(p["death_date"]),
                             "place": p["death_place"],
                             "kind": "Falecimento",
                             "context_label": ctx,
@@ -1027,8 +1245,8 @@ class ResearchState(rx.State):
                     "id": p["id"],
                     "name": p["name"],
                     "nationality": p["nationality"],
-                    "birth_date": p["birth_date"],
-                    "death_date": p["death_date"],
+                    "birth_date": p.get("birth_date_br") or p["birth_date"],
+                    "death_date": p.get("death_date_br") or p["death_date"],
                     "birth_place": p["birth_place"],
                     "death_place": p["death_place"],
                     "summary": p["summary"],
@@ -1133,8 +1351,8 @@ class ResearchState(rx.State):
         return self.people_enriched[:5]
 
     @rx.var
-    def dashboard_recent_history(self) -> list[HistoryEntry]:
-        return self.history[:6]
+    def dashboard_recent_history(self) -> list[EnrichedHistoryEntry]:
+        return self.enriched_history[:6]
 
     @rx.var
     def dashboard_top_nationalities(self) -> list[DistRow]:
@@ -1438,14 +1656,16 @@ class ResearchState(rx.State):
                     p.get("article_title", "") or p.get("name", ""),
                     p.get("id", ""),
                     p.get("nationality", ""),
-                    p.get("birth_date", ""),
+                    _format_br_date(p.get("birth_date", "")),
                     p.get("birth_place", ""),
-                    "Vivo(a)" if living else p.get("death_date", ""),
+                    "Vivo(a)"
+                    if living
+                    else _format_br_date(p.get("death_date", "")),
                     "—" if living else p.get("death_place", ""),
                     "Vivo(a)" if living else "Falecido(a)",
                     p.get("completeness", 0),
                     p.get("article_url", ""),
-                    p.get("searched_at", ""),
+                    _format_br_date(p.get("searched_at", "")),
                 ]
             )
         return rx.download(
@@ -1624,7 +1844,8 @@ class ResearchState(rx.State):
             return
 
         page_title = page.get("title", chosen)
-        extract = page.get("extract", "") or ""
+        extract_raw = page.get("extract", "") or ""
+        extract = _strip_html(extract_raw) or extract_raw
         page_url = page.get("fullurl") or (
             f"https://pt.wikipedia.org/wiki/{page_title.replace(' ', '_')}"
         )

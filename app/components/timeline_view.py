@@ -265,7 +265,8 @@ def narrative_timeline_event(event) -> rx.Component:
                     ),
                 ),
                 rx.el.p(
-                    event["date"],
+                    event["date_br"],
+                    title=event["date"],
                     class_name="text-[10px] text-gray-400 font-mono mt-0.5",
                 ),
                 class_name="w-20 shrink-0 pt-1",

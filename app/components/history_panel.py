@@ -5,10 +5,14 @@ from app.states.research_state import ResearchState
 def history_row(entry) -> rx.Component:
     return rx.el.div(
         rx.el.div(
-            rx.icon("history", class_name="h-3.5 w-3.5 text-gray-400"),
+            rx.icon(
+                "history",
+                class_name="h-3.5 w-3.5 text-gray-400 mt-0.5 shrink-0",
+            ),
             rx.el.div(
                 rx.el.p(
                     entry["term"],
+                    title=entry["term"],
                     class_name=rx.cond(
                         ResearchState.dark_mode,
                         "text-sm font-medium text-gray-100",
@@ -17,14 +21,42 @@ def history_row(entry) -> rx.Component:
                 ),
                 rx.el.p(
                     f"→ {entry['title']}",
+                    title=entry["title"],
                     class_name=rx.cond(
                         ResearchState.dark_mode,
-                        "text-xs text-gray-400",
-                        "text-xs text-gray-500",
+                        "text-xs text-gray-400 break-words",
+                        "text-xs text-gray-500 break-words",
                     ),
                 ),
+                rx.cond(
+                    entry["context_label"] != "",
+                    rx.el.p(
+                        entry["context_label"],
+                        title=entry["context_label"],
+                        class_name=rx.cond(
+                            ResearchState.dark_mode,
+                            "text-[10px] text-amber-300 italic break-words mt-0.5",
+                            "text-[10px] text-amber-700 italic break-words mt-0.5",
+                        ),
+                    ),
+                    rx.fragment(),
+                ),
+                rx.cond(
+                    entry["short_id"] != "",
+                    rx.el.span(
+                        entry["short_id"],
+                        title=f"Wikidata: {entry['short_id']}",
+                        class_name=rx.cond(
+                            ResearchState.dark_mode,
+                            "inline-block text-[9px] font-mono text-blue-300 bg-blue-950/40 border border-blue-900 px-1.5 py-0.5 rounded mt-1",
+                            "inline-block text-[9px] font-mono text-blue-700 bg-blue-50 border border-blue-100 px-1.5 py-0.5 rounded mt-1",
+                        ),
+                    ),
+                    rx.fragment(),
+                ),
+                class_name="min-w-0 flex-1",
             ),
-            class_name="flex items-start gap-3",
+            class_name="flex items-start gap-2 min-w-0 flex-1",
         ),
         rx.el.div(
             rx.el.span(
@@ -36,15 +68,16 @@ def history_row(entry) -> rx.Component:
                 ),
             ),
             rx.el.span(
-                entry["timestamp"],
-                class_name="text-[11px] text-gray-400 font-mono",
+                entry["timestamp_br"],
+                title=entry["timestamp"],
+                class_name="text-[11px] text-gray-400 font-mono mt-1 block text-right",
             ),
-            class_name="flex items-center gap-2",
+            class_name="flex flex-col items-end gap-0.5 shrink-0",
         ),
         class_name=rx.cond(
             ResearchState.dark_mode,
-            "flex items-center justify-between py-3 border-b border-gray-800 last:border-0",
-            "flex items-center justify-between py-3 border-b border-gray-100 last:border-0",
+            "flex items-start justify-between gap-3 py-3 border-b border-gray-800 last:border-0",
+            "flex items-start justify-between gap-3 py-3 border-b border-gray-100 last:border-0",
         ),
     )
 
@@ -115,7 +148,7 @@ def history_panel() -> rx.Component:
         rx.cond(
             ResearchState.total_history > 0,
             rx.el.div(
-                rx.foreach(ResearchState.history, history_row),
+                rx.foreach(ResearchState.enriched_history, history_row),
                 class_name="px-1",
             ),
             rx.el.div(

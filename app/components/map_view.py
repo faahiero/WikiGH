@@ -88,7 +88,8 @@ def map_marker(point) -> rx.Component:
                     class_name="text-xs text-gray-700 mt-2",
                 ),
                 rx.el.p(
-                    point["date"],
+                    point["date_br"],
+                    title=point["date"],
                     class_name="text-[11px] text-gray-500 font-mono mt-0.5",
                 ),
                 class_name="min-w-[200px]",
@@ -254,13 +255,20 @@ def selected_location_overlay() -> rx.Component:
                         ),
                         rx.el.div(
                             rx.icon(
-                                "split", class_name="h-2.5 w-2.5 text-amber-700"
+                                "split",
+                                class_name="h-2.5 w-2.5 text-amber-700 shrink-0 mt-0.5",
                             ),
                             rx.el.span(
                                 ResearchState.selected_person["context_label"],
-                                class_name="text-[10px] text-amber-800 truncate",
+                                title=ResearchState.selected_person[
+                                    "context_label"
+                                ],
+                                class_name="text-[10px] text-amber-800 break-words",
                             ),
-                            class_name="inline-flex items-center gap-1 px-1.5 py-0.5 mt-0.5 rounded bg-amber-50 border border-amber-100 max-w-full",
+                            title=ResearchState.selected_person[
+                                "context_label"
+                            ],
+                            class_name="inline-flex items-start gap-1 px-1.5 py-0.5 mt-0.5 rounded bg-amber-50 border border-amber-100 max-w-full",
                         ),
                         rx.el.p(
                             ResearchState.selected_person["nationality"],

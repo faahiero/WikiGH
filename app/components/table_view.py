@@ -82,10 +82,11 @@ def table_row(person) -> rx.Component:
                         person["is_homonym"] & (person["context_label"] != ""),
                         rx.el.p(
                             person["context_label"],
+                            title=person["context_label"],
                             class_name=rx.cond(
                                 ResearchState.dark_mode,
-                                "text-[11px] text-amber-300 italic truncate max-w-[260px]",
-                                "text-[11px] text-amber-700 italic truncate max-w-[260px]",
+                                "text-[11px] text-amber-300 italic break-words max-w-[300px]",
+                                "text-[11px] text-amber-700 italic break-words max-w-[300px]",
                             ),
                         ),
                         rx.fragment(),
@@ -117,7 +118,8 @@ def table_row(person) -> rx.Component:
         ),
         rx.el.td(
             rx.el.p(
-                person["birth_date"],
+                person["birth_date_br"],
+                title=person["birth_date"],
                 class_name=rx.cond(
                     ResearchState.dark_mode,
                     "text-xs font-mono text-gray-100",
@@ -126,6 +128,7 @@ def table_row(person) -> rx.Component:
             ),
             rx.el.p(
                 person["birth_place"],
+                title=person["birth_place"],
                 class_name=rx.cond(
                     ResearchState.dark_mode,
                     "text-xs text-gray-400 truncate max-w-[200px]",
@@ -136,7 +139,8 @@ def table_row(person) -> rx.Component:
         ),
         rx.el.td(
             rx.el.p(
-                person["death_date"],
+                person["death_date_br"],
+                title=person["death_date"],
                 class_name=rx.cond(
                     ResearchState.dark_mode,
                     "text-xs font-mono text-gray-100",
@@ -145,6 +149,7 @@ def table_row(person) -> rx.Component:
             ),
             rx.el.p(
                 person["death_place"],
+                title=person["death_place"],
                 class_name=rx.cond(
                     ResearchState.dark_mode,
                     "text-xs text-gray-400 truncate max-w-[200px]",

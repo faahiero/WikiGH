@@ -480,10 +480,9 @@ def authenticated_app() -> rx.Component:
         sidebar(),
         rx.el.div(
             topbar(),
-            topbar(),
             rx.el.div(
                 main_content(),
-                class_name="px-4 lg:px-6 py-4 flex-1 overflow-y-auto",
+                class_name="px-5 lg:px-8 py-5 flex-1 overflow-y-auto text-[15px]",
             ),
             class_name=rx.cond(
                 ResearchState.dark_mode,

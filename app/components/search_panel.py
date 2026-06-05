@@ -87,10 +87,11 @@ def search_result_item(item) -> rx.Component:
                 ),
                 rx.el.p(
                     item["snippet"],
+                    title=item["snippet"],
                     class_name=rx.cond(
                         ResearchState.dark_mode,
-                        "text-xs text-gray-400 mt-1 text-left line-clamp-2",
-                        "text-xs text-gray-500 mt-1 text-left line-clamp-2",
+                        "text-xs text-gray-400 mt-1 text-left line-clamp-3 break-words leading-relaxed",
+                        "text-xs text-gray-500 mt-1 text-left line-clamp-3 break-words leading-relaxed",
                     ),
                 ),
                 class_name="flex-1 min-w-0",

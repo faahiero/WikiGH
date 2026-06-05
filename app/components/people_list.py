@@ -72,27 +72,31 @@ def person_card(person) -> rx.Component:
         rx.cond(
             person["is_homonym"],
             rx.el.div(
-                rx.icon("split", class_name="h-3 w-3 text-amber-600 shrink-0"),
+                rx.icon(
+                    "split", class_name="h-3 w-3 text-amber-600 shrink-0 mt-0.5"
+                ),
                 rx.el.span(
                     "Homônimo",
                     class_name=rx.cond(
                         ResearchState.dark_mode,
-                        "text-[9px] font-bold uppercase tracking-wider text-amber-300",
-                        "text-[9px] font-bold uppercase tracking-wider text-amber-700",
+                        "text-[9px] font-bold uppercase tracking-wider text-amber-300 shrink-0",
+                        "text-[9px] font-bold uppercase tracking-wider text-amber-700 shrink-0",
                     ),
                 ),
                 rx.el.span(
                     person["context_label"],
+                    title=person["context_label"],
                     class_name=rx.cond(
                         ResearchState.dark_mode,
-                        "text-[10px] text-amber-200 truncate",
-                        "text-[10px] text-amber-800 truncate",
+                        "text-[10px] text-amber-200 break-words",
+                        "text-[10px] text-amber-800 break-words",
                     ),
                 ),
+                title=person["context_label"],
                 class_name=rx.cond(
                     ResearchState.dark_mode,
-                    "inline-flex items-center gap-1 px-1.5 py-0.5 mt-2 rounded-md bg-amber-950/40 border border-amber-900 max-w-full",
-                    "inline-flex items-center gap-1 px-1.5 py-0.5 mt-2 rounded-md bg-amber-50 border border-amber-100 max-w-full",
+                    "inline-flex items-start gap-1 px-1.5 py-0.5 mt-2 rounded-md bg-amber-950/40 border border-amber-900 max-w-full",
+                    "inline-flex items-start gap-1 px-1.5 py-0.5 mt-2 rounded-md bg-amber-50 border border-amber-100 max-w-full",
                 ),
             ),
             rx.cond(
@@ -149,7 +153,7 @@ def person_card(person) -> rx.Component:
             rx.el.div(
                 rx.icon("calendar", class_name="h-3 w-3 text-gray-400"),
                 rx.el.span(
-                    f"{person['birth_date']}  →  {person['death_date']}",
+                    f"{person['birth_date_br']}  →  {person['death_date_br']}",
                     class_name=rx.cond(
                         ResearchState.dark_mode,
                         "text-[11px] text-gray-300 font-mono",
@@ -296,7 +300,7 @@ def people_list() -> rx.Component:
                     class_name=rx.cond(
                         ResearchState.dark_mode,
                         "text-xs text-gray-505 text-center mt-1",
-                        "text-xs text-gray-404 text-center mt-1",
+                        "text-xs text-gray-504 text-center mt-1",
                     ),
                 ),
                 class_name=rx.cond(

@@ -314,15 +314,17 @@ def recent_searches_panel() -> rx.Component:
             ResearchState.total_history > 0,
             rx.el.div(
                 rx.foreach(
-                    ResearchState.history,
+                    ResearchState.enriched_history,
                     lambda h: rx.el.div(
                         rx.el.div(
                             rx.icon(
-                                "search", class_name="h-3.5 w-3.5 text-gray-400"
+                                "search",
+                                class_name="h-3.5 w-3.5 text-gray-400 mt-0.5 shrink-0",
                             ),
                             rx.el.div(
                                 rx.el.p(
                                     h["term"],
+                                    title=h["term"],
                                     class_name=rx.cond(
                                         ResearchState.dark_mode,
                                         "text-sm font-medium text-gray-100",
@@ -331,14 +333,42 @@ def recent_searches_panel() -> rx.Component:
                                 ),
                                 rx.el.p(
                                     f"→ {h['title']}",
+                                    title=h["title"],
                                     class_name=rx.cond(
                                         ResearchState.dark_mode,
-                                        "text-xs text-gray-400",
-                                        "text-xs text-gray-500",
+                                        "text-xs text-gray-400 break-words",
+                                        "text-xs text-gray-500 break-words",
                                     ),
                                 ),
+                                rx.cond(
+                                    h["context_label"] != "",
+                                    rx.el.p(
+                                        h["context_label"],
+                                        title=h["context_label"],
+                                        class_name=rx.cond(
+                                            ResearchState.dark_mode,
+                                            "text-[10px] text-amber-300 italic break-words mt-0.5",
+                                            "text-[10px] text-amber-700 italic break-words mt-0.5",
+                                        ),
+                                    ),
+                                    rx.fragment(),
+                                ),
+                                rx.cond(
+                                    h["short_id"] != "",
+                                    rx.el.span(
+                                        h["short_id"],
+                                        title=f"Wikidata: {h['short_id']}",
+                                        class_name=rx.cond(
+                                            ResearchState.dark_mode,
+                                            "inline-block text-[9px] font-mono text-blue-300 bg-blue-950/40 border border-blue-900 px-1.5 py-0.5 rounded mt-1",
+                                            "inline-block text-[9px] font-mono text-blue-700 bg-blue-50 border border-blue-100 px-1.5 py-0.5 rounded mt-1",
+                                        ),
+                                    ),
+                                    rx.fragment(),
+                                ),
+                                class_name="min-w-0 flex-1",
                             ),
-                            class_name="flex items-start gap-2",
+                            class_name="flex items-start gap-2 min-w-0 flex-1",
                         ),
                         rx.el.div(
                             rx.el.span(
@@ -350,15 +380,16 @@ def recent_searches_panel() -> rx.Component:
                                 ),
                             ),
                             rx.el.span(
-                                h["timestamp"],
+                                h["timestamp_br"],
+                                title=h["timestamp"],
                                 class_name="text-[10px] text-gray-400 font-mono mt-1 block",
                             ),
-                            class_name="text-right",
+                            class_name="text-right shrink-0",
                         ),
                         class_name=rx.cond(
                             ResearchState.dark_mode,
-                            "flex items-center justify-between py-2.5 border-b border-gray-800 last:border-0",
-                            "flex items-center justify-between py-2.5 border-b border-gray-100 last:border-0",
+                            "flex items-start justify-between gap-3 py-2.5 border-b border-gray-800 last:border-0",
+                            "flex items-start justify-between gap-3 py-2.5 border-b border-gray-100 last:border-0",
                         ),
                     ),
                 ),
