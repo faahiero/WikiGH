@@ -451,11 +451,37 @@ def selectable_person_chip(person) -> rx.Component:
     has_birth = (person["birth_lat"] != 0.0) | (person["birth_lng"] != 0.0)
     has_death = (person["death_lat"] != 0.0) | (person["death_lng"] != 0.0)
     has_both = has_birth & has_death
-    mid_lat = (person["birth_lat"] + person["death_lat"]) / 2
-    mid_lng = (person["birth_lng"] + person["death_lng"]) / 2
+    # Detect same/near-same place (raw coords overlap within a small epsilon).
+    # When that happens, the visible markers are offset by ~0.0065deg in
+    # map_points/map_connections, so we must zoom in to city-level so both
+    # offset pins are clearly visible. Use the offset-adjusted midpoint that
+    # matches the rendered geometry to keep the framing consistent.
+    same_place = (abs(person["birth_lat"] - person["death_lat"]) < 0.001) & (
+        abs(person["birth_lng"] - person["death_lng"]) < 0.001
+    )
+    raw_mid_lat = (person["birth_lat"] + person["death_lat"]) / 2
+    raw_mid_lng = (person["birth_lng"] + person["death_lng"]) / 2
+    # Distance proxy on the larger axis to pick a sensible zoom for distant pairs.
+    lat_span = abs(person["birth_lat"] - person["death_lat"])
+    lng_span = abs(person["birth_lng"] - person["death_lng"])
+    max_span = rx.cond(lat_span > lng_span, lat_span, lng_span)
+    distant_zoom = rx.cond(
+        max_span > 60.0,
+        2.5,
+        rx.cond(
+            max_span > 25.0,
+            3.5,
+            rx.cond(
+                max_span > 8.0,
+                4.5,
+                rx.cond(max_span > 2.0, 6.0, 8.0),
+            ),
+        ),
+    )
+    both_zoom = rx.cond(same_place, 13.0, distant_zoom)
     fly_event = rx.cond(
         has_both,
-        map_api.fly_to(latlng(lat=mid_lat, lng=mid_lng), 3.5),
+        map_api.fly_to(latlng(lat=raw_mid_lat, lng=raw_mid_lng), both_zoom),
         rx.cond(
             has_birth,
             map_api.fly_to(
