@@ -234,22 +234,6 @@ def selected_location_overlay() -> rx.Component:
                         ),
                         rx.fragment(),
                     ),
-                    rx.cond(
-                        ResearchState.selected_person["short_id"] != "",
-                        rx.el.a(
-                            rx.icon("database", class_name="h-2.5 w-2.5"),
-                            rx.el.span(
-                                ResearchState.selected_person["short_id"]
-                            ),
-                            rx.icon("external-link", class_name="h-2 w-2"),
-                            href="https://www.wikidata.org/wiki/"
-                            + ResearchState.selected_person["qid"],
-                            target="_blank",
-                            title="Abrir no Wikidata",
-                            class_name="inline-flex items-center gap-1 text-[10px] font-mono text-blue-700 hover:text-blue-900 mt-0.5 px-1.5 py-0.5 rounded bg-blue-50 border border-blue-100 hover:border-blue-300 w-fit",
-                        ),
-                        rx.fragment(),
-                    ),
                     class_name="flex-1 min-w-0",
                 ),
                 rx.el.button(

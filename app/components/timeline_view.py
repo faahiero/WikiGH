@@ -110,26 +110,6 @@ def selected_detail_panel() -> rx.Component:
                                 "text-sm text-gray-500 mt-0.5",
                             ),
                         ),
-                        rx.cond(
-                            ResearchState.selected_person["short_id"] != "",
-                            rx.el.a(
-                                ResearchState.selected_person["short_id"],
-                                rx.icon(
-                                    "external-link",
-                                    class_name="h-2.5 w-2.5 inline-block ml-0.5",
-                                ),
-                                href="https://www.wikidata.org/wiki/"
-                                + ResearchState.selected_person["qid"],
-                                target="_blank",
-                                title="Abrir no Wikidata",
-                                class_name=rx.cond(
-                                    ResearchState.dark_mode,
-                                    "text-[10px] font-mono text-blue-300 hover:text-blue-100 mt-0.5 inline-flex items-center",
-                                    "text-[10px] font-mono text-blue-600 hover:text-blue-800 mt-0.5 inline-flex items-center",
-                                ),
-                            ),
-                            rx.fragment(),
-                        ),
                         class_name="flex flex-col",
                     ),
                     class_name="flex items-start gap-3",
@@ -149,8 +129,8 @@ def selected_detail_panel() -> rx.Component:
                 ResearchState.selected_person["summary"],
                 class_name=rx.cond(
                     ResearchState.dark_mode,
-                    "text-xs text-gray-300 leading-relaxed mt-3",
-                    "text-xs text-gray-600 leading-relaxed mt-3",
+                    "text-xs text-gray-300 leading-relaxed mt-3 text-justify hyphens-auto",
+                    "text-xs text-gray-600 leading-relaxed mt-3 text-justify hyphens-auto",
                 ),
             ),
             rx.el.div(

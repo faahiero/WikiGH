@@ -440,6 +440,10 @@ def _strip_html(text: str) -> str:
     return excerpt
 
 
+def _complete_sentence_excerpt(text: str, max_chars: int = 240) -> str:
+    return _format_preview_extract(text, max_chars)
+
+
 def _format_preview_extract(raw_text: str, max_chars: int = 520) -> str:
     if not raw_text:
         return ""
@@ -496,9 +500,18 @@ def _format_preview_extract(raw_text: str, max_chars: int = 520) -> str:
             result = result + "."
         if len(result) >= 100:
             return result
-    cut = truncated.rsplit(" ", 1)[0].rstrip(",;:-—–·• ")
+    # Prefer cutting at the last sentence boundary even if shorter than max_chars
+    boundaries_full = [m.end() for m in re.finditer(r"[.!?…](?:\s|$)", text)]
+    valid = [b for b in boundaries_full if b <= max_chars]
+    if valid:
+        result = text[: valid[-1]].rstrip()
+        if result and result[-1] not in ".!?…":
+            result = result + "."
+        if len(result) >= 80:
+            return result
+    cut = truncated.rsplit(" ", 1)[0].rstrip(",;:-—–·• \"'`")
     if cut and cut[-1] not in ".!?…":
-        cut = cut + "…"
+        cut = cut + "."
     return cut
 
 

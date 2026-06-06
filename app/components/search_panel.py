@@ -287,8 +287,8 @@ def preview_panel() -> rx.Component:
             ResearchState.selected_preview["extract"],
             class_name=rx.cond(
                 ResearchState.dark_mode,
-                "text-sm text-gray-300 leading-relaxed mt-3",
-                "text-sm text-gray-600 leading-relaxed mt-3",
+                "text-sm text-gray-300 leading-relaxed mt-3 text-justify hyphens-auto",
+                "text-sm text-gray-600 leading-relaxed mt-3 text-justify hyphens-auto",
             ),
         ),
         rx.cond(

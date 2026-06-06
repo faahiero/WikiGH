@@ -153,8 +153,8 @@ def person_card(person) -> rx.Component:
             person["summary"],
             class_name=rx.cond(
                 ResearchState.dark_mode,
-                "text-xs text-gray-400 mt-3 line-clamp-2 leading-relaxed",
-                "text-xs text-gray-600 mt-3 line-clamp-2 leading-relaxed",
+                "text-xs text-gray-400 mt-3 line-clamp-2 leading-relaxed text-justify hyphens-auto",
+                "text-xs text-gray-600 mt-3 line-clamp-2 leading-relaxed text-justify hyphens-auto",
             ),
         ),
         rx.el.div(
