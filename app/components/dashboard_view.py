@@ -765,7 +765,7 @@ def welcome_banner() -> rx.Component:
             ),
             class_name="flex items-start justify-between gap-4 flex-wrap",
         ),
-        class_name="bg-gradient-to-r from-blue-600 to-blue-700 rounded-xl p-6 mb-6 shadow-sm",
+        class_name="bg-linear-to-r from-blue-600 to-blue-700 rounded-xl p-6 mb-6 shadow-xs",
     )
 
 

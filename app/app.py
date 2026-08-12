@@ -108,7 +108,7 @@ def landing_nav() -> rx.Component:
                 rx.el.button(
                     "Acessar Plataforma",
                     on_click=ResearchState.enter_app,
-                    class_name="text-sm font-semibold text-white bg-blue-600 hover:bg-blue-700 px-4 py-2 rounded-lg shadow-sm hover:shadow transition-all",
+                    class_name="text-sm font-semibold text-white bg-blue-600 hover:bg-blue-700 px-4 py-2 rounded-lg shadow-xs hover:shadow transition-all",
                 ),
                 class_name="flex items-center gap-4",
             ),
@@ -174,8 +174,8 @@ def landing_hero() -> rx.Component:
         id="home",
         class_name=rx.cond(
             ResearchState.dark_mode,
-            "bg-gradient-to-b from-blue-950/30 via-gray-950 to-gray-950 border-b border-gray-800",
-            "bg-gradient-to-b from-blue-50/50 via-white to-white border-b border-gray-100",
+            "bg-linear-to-b from-blue-950/30 via-gray-950 to-gray-950 border-b border-gray-800",
+            "bg-linear-to-b from-blue-50/50 via-white to-white border-b border-gray-100",
         ),
     )
 
@@ -209,7 +209,7 @@ def feature_card(icon: str, title: str, description: str) -> rx.Component:
         class_name=rx.cond(
             ResearchState.dark_mode,
             "p-6 bg-gray-900 border border-gray-800 rounded-xl hover:border-blue-800 transition-all",
-            "p-6 bg-white border border-gray-200 rounded-xl shadow-sm hover:border-blue-300 hover:shadow-md transition-all",
+            "p-6 bg-white border border-gray-200 rounded-xl shadow-xs hover:border-blue-300 hover:shadow-md transition-all",
         ),
     )
 
@@ -467,8 +467,8 @@ def dark_mode_toggle_floating() -> rx.Component:
         on_click=ResearchState.toggle_dark_mode,
         class_name=rx.cond(
             ResearchState.dark_mode,
-            "fixed bottom-6 right-6 z-50 p-3 rounded-full bg-gray-900 border border-gray-800 shadow-lg hover:shadow-blue-900/50 hover:bg-gray-800 hover:border-gray-700 focus:outline-none focus:ring-2 focus:ring-blue-500 transition-all duration-300 transform hover:scale-110 flex items-center justify-center",
-            "fixed bottom-6 right-6 z-50 p-3 rounded-full bg-white border border-gray-200 shadow-lg hover:shadow-blue-100/50 hover:bg-gray-50 hover:border-gray-300 focus:outline-none focus:ring-2 focus:ring-blue-500 transition-all duration-300 transform hover:scale-110 flex items-center justify-center",
+            "fixed bottom-6 right-6 z-50 p-3 rounded-full bg-gray-900 border border-gray-800 shadow-lg hover:shadow-blue-900/50 hover:bg-gray-800 hover:border-gray-700 focus:outline-hidden focus:ring-2 focus:ring-blue-500 transition-all duration-300 transform hover:scale-110 flex items-center justify-center",
+            "fixed bottom-6 right-6 z-50 p-3 rounded-full bg-white border border-gray-200 shadow-lg hover:shadow-blue-100/50 hover:bg-gray-50 hover:border-gray-300 focus:outline-hidden focus:ring-2 focus:ring-blue-500 transition-all duration-300 transform hover:scale-110 flex items-center justify-center",
         ),
         aria_label="Alternar tema escuro/claro",
         title="Alternar tema escuro/claro",

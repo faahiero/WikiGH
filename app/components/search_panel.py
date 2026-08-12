@@ -441,8 +441,8 @@ def guided_chips_bar() -> rx.Component:
         ),
         class_name=rx.cond(
             ResearchState.dark_mode,
-            "px-4 py-3 rounded-lg bg-gradient-to-r from-blue-950/30 to-gray-900 border border-blue-900/40 mt-3",
-            "px-4 py-3 rounded-lg bg-gradient-to-r from-blue-50/70 to-white border border-blue-100 mt-3",
+            "px-4 py-3 rounded-lg bg-linear-to-r from-blue-950/30 to-gray-900 border border-blue-900/40 mt-3",
+            "px-4 py-3 rounded-lg bg-linear-to-r from-blue-50/70 to-white border border-blue-100 mt-3",
         ),
     )
 
@@ -462,8 +462,8 @@ def search_panel() -> rx.Component:
                     on_change=ResearchState.set_search_query.debounce(500),
                     class_name=rx.cond(
                         ResearchState.dark_mode,
-                        "w-full pl-10 pr-10 py-3 text-sm bg-gray-800 border border-gray-700 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent placeholder-gray-500 text-gray-100",
-                        "w-full pl-10 pr-10 py-3 text-sm bg-gray-50 border border-gray-200 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent placeholder-gray-400",
+                        "w-full pl-10 pr-10 py-3 text-sm bg-gray-800 border border-gray-700 rounded-lg focus:outline-hidden focus:ring-2 focus:ring-blue-500 focus:border-transparent placeholder-gray-500 text-gray-100",
+                        "w-full pl-10 pr-10 py-3 text-sm bg-gray-50 border border-gray-200 rounded-lg focus:outline-hidden focus:ring-2 focus:ring-blue-500 focus:border-transparent placeholder-gray-400",
                     ),
                     aria_label="Termo de pesquisa na Wikipédia",
                 ),
@@ -487,7 +487,7 @@ def search_panel() -> rx.Component:
                 ),
                 rx.el.span("Pesquisar"),
                 on_click=ResearchState.perform_search,
-                class_name="inline-flex items-center gap-2 px-5 py-3 text-sm font-semibold text-white bg-gradient-to-br from-blue-600 to-blue-700 hover:from-blue-700 hover:to-blue-800 rounded-lg transition-all shadow-sm shrink-0 disabled:opacity-50 disabled:cursor-not-allowed",
+                class_name="inline-flex items-center gap-2 px-5 py-3 text-sm font-semibold text-white bg-linear-to-br from-blue-600 to-blue-700 hover:from-blue-700 hover:to-blue-800 rounded-lg transition-all shadow-xs shrink-0 disabled:opacity-50 disabled:cursor-not-allowed",
                 disabled=ResearchState.is_searching,
                 aria_label="Executar busca biográfica",
             ),

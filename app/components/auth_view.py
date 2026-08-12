@@ -27,8 +27,8 @@ def _input(
             required=True,
             class_name=rx.cond(
                 icon != "",
-                "w-full pl-10 pr-3 py-2.5 text-sm bg-white text-gray-900 border border-gray-200 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent placeholder-gray-400",
-                "w-full px-3.5 py-2.5 text-sm bg-white text-gray-900 border border-gray-200 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent placeholder-gray-400",
+                "w-full pl-10 pr-3 py-2.5 text-sm bg-white text-gray-900 border border-gray-200 rounded-lg focus:outline-hidden focus:ring-2 focus:ring-blue-500 focus:border-transparent placeholder-gray-400",
+                "w-full px-3.5 py-2.5 text-sm bg-white text-gray-900 border border-gray-200 rounded-lg focus:outline-hidden focus:ring-2 focus:ring-blue-500 focus:border-transparent placeholder-gray-400",
             ),
         ),
         class_name="relative",
@@ -173,7 +173,7 @@ def auth_tabs() -> rx.Component:
             on_click=lambda: AuthState.set_auth_mode("login"),
             class_name=rx.cond(
                 AuthState.auth_mode == "login",
-                "flex-1 px-4 py-2 text-sm font-semibold text-blue-700 bg-white border border-gray-200 rounded-lg shadow-sm",
+                "flex-1 px-4 py-2 text-sm font-semibold text-blue-700 bg-white border border-gray-200 rounded-lg shadow-xs",
                 "flex-1 px-4 py-2 text-sm font-medium text-gray-600 hover:text-gray-900 rounded-lg",
             ),
         ),

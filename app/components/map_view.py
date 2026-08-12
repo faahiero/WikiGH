@@ -601,7 +601,7 @@ def map_view() -> rx.Component:
             rx.el.div(
                 rx.el.div(
                     rx.icon("compass", class_name="h-4 w-4 text-white"),
-                    class_name="h-9 w-9 rounded-lg bg-gradient-to-br from-emerald-500 to-emerald-700 flex items-center justify-center shrink-0",
+                    class_name="h-9 w-9 rounded-lg bg-linear-to-br from-emerald-500 to-emerald-700 flex items-center justify-center shrink-0",
                 ),
                 rx.el.div(
                     rx.el.span(

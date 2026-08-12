@@ -303,7 +303,7 @@ def table_summary_strip() -> rx.Component:
         class_name=rx.cond(
             ResearchState.dark_mode,
             "flex items-center bg-gray-950 rounded-xl border border-gray-800 overflow-hidden mb-4 flex-wrap",
-            "flex items-center bg-gradient-to-r from-blue-50/40 to-white rounded-xl border border-blue-100 overflow-hidden mb-4 flex-wrap",
+            "bg-linear-to-r from-blue-50/40 to-white rounded-xl border border-blue-100 overflow-hidden mb-4 flex-wrap",
         ),
     )
 
@@ -367,7 +367,7 @@ def table_view() -> rx.Component:
                 rx.el.div(
                     rx.el.div(
                         rx.icon("table-2", class_name="h-4 w-4 text-white"),
-                        class_name="h-9 w-9 rounded-lg bg-gradient-to-br from-rose-500 to-rose-700 flex items-center justify-center shrink-0",
+                        class_name="h-9 w-9 rounded-lg bg-linear-to-br from-rose-500 to-rose-700 flex items-center justify-center shrink-0",
                     ),
                     rx.el.div(
                         rx.el.span(

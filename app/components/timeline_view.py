@@ -481,7 +481,7 @@ def timeline_summary_strip() -> rx.Component:
         class_name=rx.cond(
             ResearchState.dark_mode,
             "flex items-center bg-gray-950 rounded-xl border border-gray-800 overflow-hidden mb-4",
-            "flex items-center bg-gradient-to-r from-amber-50/30 to-white rounded-xl border border-amber-100 overflow-hidden mb-4",
+            "flex items-center bg-linear-to-r from-amber-50/30 to-white rounded-xl border border-amber-100 overflow-hidden mb-4",
         ),
     )
 
@@ -493,7 +493,7 @@ def timeline_view() -> rx.Component:
                 rx.el.div(
                     rx.el.div(
                         rx.icon("scroll-text", class_name="h-4 w-4 text-white"),
-                        class_name="h-9 w-9 rounded-lg bg-gradient-to-br from-amber-500 to-amber-700 flex items-center justify-center shrink-0",
+                        "h-9 w-9 rounded-lg bg-linear-to-br from-amber-500 to-amber-700 flex items-center justify-center shrink-0",
                     ),
                     rx.el.div(
                         rx.el.span(
@@ -526,8 +526,8 @@ def timeline_view() -> rx.Component:
                     rx.el.div(
                         class_name=rx.cond(
                             ResearchState.dark_mode,
-                            "absolute left-[18px] top-2 bottom-2 w-px bg-gradient-to-b from-transparent via-amber-900/40 to-transparent",
-                            "absolute left-[18px] top-2 bottom-2 w-px bg-gradient-to-b from-transparent via-amber-200 to-transparent",
+                            "absolute left-[18px] top-2 bottom-2 w-px bg-linear-to-b from-transparent via-amber-900/40 to-transparent",
+                            "absolute left-[18px] top-2 bottom-2 w-px bg-linear-to-b from-transparent via-amber-200 to-transparent",
                         ),
                     ),
                     rx.foreach(
@@ -566,14 +566,14 @@ def timeline_view() -> rx.Component:
                     class_name=rx.cond(
                         ResearchState.dark_mode,
                         "bg-gray-950 border border-dashed border-gray-800 rounded-xl py-12",
-                        "bg-gradient-to-b from-amber-50/30 to-white border border-dashed border-amber-200 rounded-xl py-12",
+                        "bg-linear-to-b from-amber-50/30 to-white border border-dashed border-amber-200 rounded-xl py-12",
                     ),
                 ),
             ),
             class_name=rx.cond(
                 ResearchState.dark_mode,
                 "bg-gray-900 border border-gray-800 rounded-2xl p-5 lg:col-span-2",
-                "bg-white border border-gray-200 rounded-2xl p-5 lg:col-span-2 shadow-sm",
+                "bg-white border border-gray-200 rounded-2xl p-5 lg:col-span-2 shadow-xs",
             ),
         ),
         rx.el.div(
