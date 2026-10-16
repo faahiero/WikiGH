@@ -685,8 +685,8 @@ def map_view() -> rx.Component:
                 selected_location_overlay(),
                 rxe.map(
                     rxe.map.tile_layer(
-                        url="https://{s}.basemaps.cartocdn.com/rastertiles/voyager/{z}/{x}/{y}{r}.png",
-                        attribution="&copy; OpenStreetMap &copy; CARTO",
+                        url="https://tile.openstreetmap.org/{z}/{x}/{y}.png",
+                        attribution='&copy; <a href="https://www.openstreetmap.org/copyright">OpenStreetMap</a> contributors',
                     ),
                     rx.foreach(
                         ResearchState.map_connections, connection_polyline
