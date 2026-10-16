@@ -1,5 +1,6 @@
 import reflex as rx
 from app.states.research_state import ResearchState
+from app.components.biography_edit import biography_edit_button
 
 
 def person_card(person) -> rx.Component:
@@ -66,16 +67,20 @@ def person_card(person) -> rx.Component:
                 ),
                 class_name="flex items-center gap-3",
             ),
-            rx.el.button(
-                rx.icon("trash-2", class_name="h-3.5 w-3.5"),
-                on_click=lambda: ResearchState.remove_person(person["id"]),
-                class_name=rx.cond(
-                    ResearchState.dark_mode,
-                    "text-gray-500 hover:text-red-400 p-1.5 rounded-md hover:bg-red-950/30 transition-colors",
-                    "text-gray-400 hover:text-red-600 p-1.5 rounded-md hover:bg-red-50 transition-colors",
+            rx.el.div(
+                biography_edit_button(person),
+                rx.el.button(
+                    rx.icon("trash-2", class_name="h-3.5 w-3.5"),
+                    on_click=lambda: ResearchState.remove_person(person["id"]),
+                    class_name=rx.cond(
+                        ResearchState.dark_mode,
+                        "text-gray-500 hover:text-red-400 p-1.5 rounded-md hover:bg-red-950/30 transition-colors",
+                        "text-gray-400 hover:text-red-600 p-1.5 rounded-md hover:bg-red-50 transition-colors",
+                    ),
                 ),
+                class_name="flex shrink-0 items-center gap-1",
             ),
-            class_name="flex items-start justify-between",
+            class_name="flex items-start justify-between gap-2",
         ),
         rx.cond(
             person["is_homonym"],

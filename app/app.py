@@ -15,6 +15,7 @@ from app.components.analytics_view import analytics_view
 from app.components.table_view import table_view
 from app.components.dashboard_view import dashboard_view
 from app.components.collections_view import collections_view
+from app.components.biography_edit import biography_edit
 
 
 def research_section() -> rx.Component:
@@ -480,6 +481,7 @@ def dark_mode_toggle_floating() -> rx.Component:
 
 def authenticated_app() -> rx.Component:
     return rx.el.div(
+        biography_edit(),
         sidebar(),
         rx.el.div(
             topbar(),

@@ -7,7 +7,8 @@ import requests
 import sqlite3
 from pathlib import Path
 from datetime import datetime
-from typing import TypedDict
+from typing import Any, TypedDict
+from contextlib import closing
 
 
 WIKI_API = "https://pt.wikipedia.org/w/api.php"
@@ -43,6 +44,10 @@ def _format_br_date(raw: str) -> str:
     if m:
         return s
     # Negative year (BC)
+    m = re.match(r"^-(\d+)-(\d{2})$", s)
+    if m:
+        y, mo = m.groups()
+        return f"{mo}/{y} a.C."
     m = re.match(r"^-(\d+)-(\d{2})-(\d{2})$", s)
     if m:
         y, mo, d = m.groups()
@@ -51,6 +56,114 @@ def _format_br_date(raw: str) -> str:
     if m:
         return f"{m.group(1)} a.C."
     return s
+
+
+def _stored_year(raw: str) -> int:
+    match = re.match(r"^(-?\d+)(?:-|$)", raw or "")
+    if not match:
+        raise ValueError("Data sem ano válido.")
+    return int(match.group(1))
+
+
+def _normalize_edit_date(
+    raw: str, label: str, allow_living: bool = False
+) -> str:
+    s = raw.strip()
+    if len(s) > 40:
+        raise ValueError(f"{label}: use no máximo 40 caracteres.")
+    if s in ("", "—"):
+        return "—"
+    if s.casefold() == "vivo(a)" and allow_living:
+        return "Vivo(a)"
+    bce = bool(re.search(r"\s*a\.\s*c\.$", s, re.IGNORECASE))
+    s = re.sub(r"\s*a\.\s*c\.$", "", s, flags=re.IGNORECASE).strip()
+    year = month = day = 0
+    precision = 1
+    if re.fullmatch(r"\d{1,2}/\d{1,2}/\d{1,4}", s):
+        day, month, year = map(int, s.split("/"))
+        precision = 3
+    elif re.fullmatch(r"\d{1,2}/\d{1,4}", s):
+        month, year = map(int, s.split("/"))
+        precision = 2
+    else:
+        match = re.fullmatch(r"(-?\d{1,4})(?:-(\d{2})(?:-(\d{2}))?)?", s)
+        if not match:
+            raise ValueError(
+                f"{label}: use dd/mm/aaaa, mm/aaaa, aaaa ou ISO; para a.C., use -0044 ou 44 a.C."
+            )
+        year = int(match.group(1))
+        month = int(match.group(2) or 0)
+        day = int(match.group(3) or 0)
+        precision = 3 if day else (2 if month else 1)
+        if day and not month:
+            raise ValueError(f"{label}: mês inválido.")
+    if bce:
+        year = -abs(year)
+    if year == 0 or abs(year) > 9999:
+        raise ValueError(
+            f"{label}: informe um ano entre 1 e 9999, sem ano zero."
+        )
+    if precision >= 2 and not 1 <= month <= 12:
+        raise ValueError(f"{label}: mês inválido.")
+    if precision == 3:
+        calendar_year = year if year > 0 else year + 1
+        leap = calendar_year % 4 == 0 and (
+            calendar_year % 100 != 0 or calendar_year % 400 == 0
+        )
+        days = (31, 29 if leap else 28, 31, 30, 31, 30, 31, 31, 30, 31, 30, 31)
+        if not 1 <= day <= days[month - 1]:
+            raise ValueError(f"{label}: esse dia não existe no calendário.")
+    result = f"{abs(year):04d}"
+    if year < 0:
+        result = f"-{result}"
+    if precision >= 2:
+        result = f"{result}-{month:02d}"
+    if precision == 3:
+        result = f"{result}-{day:02d}"
+    return result
+
+
+def _date_bounds(raw: str) -> tuple[tuple[int, int, int], tuple[int, int, int]]:
+    match = re.fullmatch(r"(-?\d+)(?:-(\d{2})(?:-(\d{2}))?)?", raw)
+    if not match:
+        raise ValueError("Data inválida.")
+    year = int(match.group(1))
+    month = int(match.group(2) or 0)
+    day = int(match.group(3) or 0)
+    return (year, month or 1, day or 1), (year, month or 12, day or 31)
+
+
+def _validate_biography_edit(values: dict[str, str]) -> dict[str, str]:
+    cleaned: dict[str, str] = {}
+    labels = {
+        "nationality": "Nacionalidade",
+        "birth_place": "Local de nascimento",
+        "death_place": "Local de falecimento",
+    }
+    for field, label in labels.items():
+        value = values[field].strip()
+        if len(value) > 240 or any(ord(c) < 32 for c in value):
+            raise ValueError(
+                f"{label}: limite de 240 caracteres, sem quebras de linha."
+            )
+        cleaned[field] = value or "—"
+    cleaned["birth_date"] = _normalize_edit_date(
+        values["birth_date"], "Nascimento"
+    )
+    cleaned["death_date"] = _normalize_edit_date(
+        values["death_date"], "Falecimento", True
+    )
+    birth, death = cleaned["birth_date"], cleaned["death_date"]
+    if birth != "—" and death not in ("—", "Vivo(a)"):
+        if _date_bounds(death)[1] < _date_bounds(birth)[0]:
+            raise ValueError(
+                "O falecimento não pode ser anterior ao nascimento. Datas parciais são comparadas pela precisão informada."
+            )
+    if death == "Vivo(a)" and cleaned["death_place"] != "—":
+        raise ValueError(
+            "Para Vivo(a), deixe o local de falecimento vazio ou informe uma data de falecimento."
+        )
+    return cleaned
 
 
 def _short_qid(qid: str) -> str:
@@ -331,6 +444,96 @@ class PersonRecord(TypedDict):
     is_living: bool
     occupation: str
     description: str
+
+
+def update_biography_db(
+    person_id: str, values: dict[str, str], expected: dict[str, str]
+) -> PersonRecord:
+    """Update only correction fields in an existing row; never replace or insert."""
+    cleaned = _validate_biography_edit(values)
+    try:
+        with closing(sqlite3.connect(DB_PATH, timeout=5)) as conn:
+            conn.row_factory = sqlite3.Row
+            try:
+                conn.execute("BEGIN IMMEDIATE")
+                row = conn.execute(
+                    "SELECT * FROM people WHERE id = ?", (person_id,)
+                ).fetchone()
+                if row is None:
+                    raise ValueError(
+                        "Esta biografia não está mais salva. Atualize a composição."
+                    )
+                if any(
+                    str(row[key] or "—") != expected[key] for key in cleaned
+                ):
+                    raise ValueError(
+                        "O registro mudou desde a abertura. Cancele e abra a edição novamente."
+                    )
+                living = cleaned["death_date"] == "Vivo(a)"
+                fields = [
+                    bool(row["name"]),
+                    cleaned["nationality"] != "—",
+                    cleaned["birth_date"] != "—",
+                    cleaned["birth_place"] != "—",
+                ]
+                if not living:
+                    fields.extend(
+                        [
+                            cleaned["death_date"] != "—",
+                            cleaned["death_place"] != "—",
+                        ]
+                    )
+                completeness = int(round(sum(fields) * 100 / len(fields)))
+                birth_changed = cleaned["birth_place"] != (
+                    row["birth_place"] or "—"
+                )
+                death_changed = cleaned["death_place"] != (
+                    row["death_place"] or "—"
+                )
+                cursor = conn.execute(
+                    """UPDATE people SET nationality = ?, birth_date = ?, death_date = ?,
+                    birth_place = ?, death_place = ?, completeness = ?, is_living = ?,
+                    birth_lat = CASE WHEN ? THEN 0 ELSE birth_lat END,
+                    birth_lng = CASE WHEN ? THEN 0 ELSE birth_lng END,
+                    death_lat = CASE WHEN ? THEN 0 ELSE death_lat END,
+                    death_lng = CASE WHEN ? THEN 0 ELSE death_lng END
+                    WHERE id = ?""",
+                    (
+                        cleaned["nationality"],
+                        cleaned["birth_date"],
+                        cleaned["death_date"],
+                        cleaned["birth_place"],
+                        cleaned["death_place"],
+                        completeness,
+                        int(living),
+                        birth_changed,
+                        birth_changed,
+                        death_changed,
+                        death_changed,
+                        person_id,
+                    ),
+                )
+                if cursor.rowcount != 1:
+                    raise ValueError("Nenhuma biografia foi atualizada.")
+                result = dict(row)
+                result.update(cleaned)
+                result["completeness"] = completeness
+                result["is_living"] = living
+                for kind, changed in (
+                    ("birth", birth_changed),
+                    ("death", death_changed),
+                ):
+                    for axis in ("lat", "lng"):
+                        key = f"{kind}_{axis}"
+                        result[key] = 0.0 if changed else float(row[key] or 0)
+                conn.commit()
+                return result
+            except Exception:
+                conn.rollback()
+                raise
+    except Exception as e:
+        logging.exception(f"Error: {e}")
+        raise
 
 
 class HistoryEntry(TypedDict):
@@ -1068,6 +1271,150 @@ class ResearchState(rx.State):
     table_search: str = ""
     storage_ready: bool = False
     last_persist_action: str = ""
+    edit_open: bool = False
+    edit_busy: bool = False
+    edit_error: str = ""
+    edit_person_id: str = ""
+    edit_name: str = ""
+    edit_context: str = ""
+    edit_article_title: str = ""
+    edit_version: int = 0
+    edit_values: dict[str, str] = {
+        "nationality": "—",
+        "birth_date": "—",
+        "death_date": "—",
+        "birth_place": "—",
+        "death_place": "—",
+    }
+    edit_original: dict[str, str] = {
+        "nationality": "—",
+        "birth_date": "—",
+        "death_date": "—",
+        "birth_place": "—",
+        "death_place": "—",
+    }
+
+    @rx.event
+    async def open_biography_edit(self, person_id: str):
+        from app.states.auth_state import AuthState
+
+        auth = await self.get_state(AuthState)
+        if not auth.is_authenticated or self.edit_busy:
+            return
+        person = next((p for p in self.people if p["id"] == person_id), None)
+        if person is None:
+            yield rx.toast("Biografia indisponível. Atualize a composição.")
+            return
+        self.edit_person_id = person_id
+        self.edit_name = person["name"]
+        self.edit_context = self._build_context_label(person)
+        self.edit_article_title = person.get("article_title", "")
+        self.edit_original = {
+            key: person[key] or "—" for key in self.edit_original
+        }
+        self.edit_values = dict(self.edit_original)
+        self.edit_version += 1
+        self.edit_error = ""
+        self.edit_open = True
+
+    @rx.event
+    def cancel_biography_edit(self):
+        if not self.edit_busy:
+            self.edit_open = False
+            self.edit_error = ""
+            self.edit_person_id = ""
+
+    @rx.event
+    def set_biography_edit_open(self, opened: bool):
+        if not opened and not self.edit_busy:
+            self.cancel_biography_edit()
+
+    @rx.event
+    async def save_biography_edit(self, form_data: dict[str, Any]):
+        from app.states.auth_state import AuthState
+
+        auth = await self.get_state(AuthState)
+        if not auth.is_authenticated or not self.edit_open or self.edit_busy:
+            return
+        if str(form_data.get("edit_version", "")) != str(self.edit_version):
+            return
+        self.edit_error = ""
+        try:
+            values: dict[str, str] = {}
+            for key in self.edit_original:
+                value = form_data.get(key)
+                if not isinstance(value, str):
+                    raise ValueError("Preencha os cinco campos da edição.")
+                values[key] = value
+            self.edit_values = values
+            _validate_biography_edit(values)
+        except ValueError as e:
+            self.edit_error = str(e)
+            yield rx.toast(
+                "Não foi possível salvar",
+                description=self.edit_error,
+                close_button=True,
+            )
+            return
+        self.edit_busy = True
+        yield ResearchState.persist_biography_edit
+
+    @rx.event(background=True)
+    async def persist_biography_edit(self):
+        from app.states.auth_state import AuthState
+        from app.states.collections_state import CollectionsState
+
+        async with self:
+            auth = await self.get_state(AuthState)
+            if (
+                not auth.is_authenticated
+                or not self.edit_busy
+                or not self.edit_open
+            ):
+                self.edit_busy = False
+                return
+            person_id = self.edit_person_id
+            values = dict(self.edit_values)
+            expected = dict(self.edit_original)
+            version = self.edit_version
+        try:
+            result = await asyncio.to_thread(
+                update_biography_db, person_id, values, expected
+            )
+        except Exception as e:
+            logging.exception(f"Error: {e}")
+            error = (
+                str(e)
+                if isinstance(e, ValueError)
+                else "Falha ao salvar no armazenamento local. Nenhum dado da composição foi alterado. Tente novamente."
+            )
+            async with self:
+                self.edit_busy = False
+                self.edit_error = error
+            yield rx.toast(
+                "Correção não salva", description=error, close_button=True
+            )
+            return
+        async with self:
+            self.people = [
+                result if p["id"] == person_id else p for p in self.people
+            ]
+            self.last_persist_action = "correção manual salva"
+            self.edit_busy = False
+            if self.edit_version == version:
+                self.edit_open = False
+                self.edit_error = ""
+                self.edit_person_id = ""
+            collections = await self.get_state(CollectionsState)
+            refresh_collections = collections.loaded
+        yield rx.toast(
+            "Correção local salva",
+            description="Biografia atualizada. Locais alterados ficam sem ponto no mapa até uma nova extração obter coordenadas correspondentes.",
+            close_button=True,
+            duration=6000,
+        )
+        if refresh_collections:
+            yield CollectionsState.reload_collections
 
     @rx.event
     async def load_data(self):
@@ -1879,7 +2226,7 @@ class ResearchState(rx.State):
             display_name = p.get("display_name", p["name"])
             if p["birth_date"] and p["birth_date"] != "—":
                 try:
-                    year = int(p["birth_date"][:4])
+                    year = _stored_year(p["birth_date"])
                     events.append(
                         {
                             "id": f"{p['id']}_b",
@@ -1901,7 +2248,7 @@ class ResearchState(rx.State):
                     pass
             if p["death_date"] and p["death_date"] != "—":
                 try:
-                    year = int(p["death_date"][:4])
+                    year = _stored_year(p["death_date"])
                     events.append(
                         {
                             "id": f"{p['id']}_d",
@@ -2002,7 +2349,7 @@ class ResearchState(rx.State):
         for p in self.people:
             if p["birth_date"] and p["birth_date"] != "—":
                 try:
-                    y = int(p["birth_date"][:4])
+                    y = _stored_year(p["birth_date"])
                     century = (y - 1) // 100 + 1 if y > 0 else 0
                     counts[century] = counts.get(century, 0) + 1
                 except ValueError:
@@ -2070,8 +2417,8 @@ class ResearchState(rx.State):
                 and p["death_date"] != "—"
             ):
                 try:
-                    by = int(p["birth_date"][:4])
-                    dy = int(p["death_date"][:4])
+                    by = _stored_year(p["birth_date"])
+                    dy = _stored_year(p["death_date"])
                     age = dy - by
                     if age < 0:
                         continue
@@ -2098,8 +2445,8 @@ class ResearchState(rx.State):
                 and p["death_date"] != "—"
             ):
                 try:
-                    by = int(p["birth_date"][:4])
-                    dy = int(p["death_date"][:4])
+                    by = _stored_year(p["birth_date"])
+                    dy = _stored_year(p["death_date"])
                     age = dy - by
                     if age >= 0:
                         ages.append(age)
@@ -2121,7 +2468,9 @@ class ResearchState(rx.State):
                 and p["death_date"] != "—"
             ):
                 try:
-                    age = int(p["death_date"][:4]) - int(p["birth_date"][:4])
+                    age = _stored_year(p["death_date"]) - _stored_year(
+                        p["birth_date"]
+                    )
                     if age > best:
                         best = age
                         name = p["name"]
@@ -2141,7 +2490,9 @@ class ResearchState(rx.State):
                 and p["death_date"] != "—"
             ):
                 try:
-                    age = int(p["death_date"][:4]) - int(p["birth_date"][:4])
+                    age = _stored_year(p["death_date"]) - _stored_year(
+                        p["birth_date"]
+                    )
                     if 0 <= age < best:
                         best = age
                         name = p["name"]
@@ -2249,7 +2600,7 @@ class ResearchState(rx.State):
         for p in self.people:
             if p["birth_date"] and p["birth_date"] != "—":
                 try:
-                    years.append(int(p["birth_date"][:4]))
+                    years.append(_stored_year(p["birth_date"]))
                 except ValueError:
                     pass
         return min(years) if years else 0
@@ -2260,7 +2611,7 @@ class ResearchState(rx.State):
         for p in self.people:
             if p["death_date"] and p["death_date"] != "—":
                 try:
-                    years.append(int(p["death_date"][:4]))
+                    years.append(_stored_year(p["death_date"]))
                 except ValueError:
                     pass
         return max(years) if years else 0
@@ -2297,7 +2648,7 @@ class ResearchState(rx.State):
         for p in self.people:
             if p["birth_date"] and p["birth_date"] != "—":
                 try:
-                    y = int(p["birth_date"][:4])
+                    y = _stored_year(p["birth_date"])
                     decade = (y // 10) * 10
                     counts[decade] = counts.get(decade, 0) + 1
                 except ValueError:
@@ -2394,12 +2745,12 @@ class ResearchState(rx.State):
         for p in self.people:
             if p["birth_date"]:
                 try:
-                    years.append(int(p["birth_date"][:4]))
+                    years.append(_stored_year(p["birth_date"]))
                 except ValueError:
                     pass
             if p["death_date"]:
                 try:
-                    years.append(int(p["death_date"][:4]))
+                    years.append(_stored_year(p["death_date"]))
                 except ValueError:
                     pass
         if not years:

@@ -1,5 +1,6 @@
 import reflex as rx
 from app.states.research_state import ResearchState
+from app.components.biography_edit import biography_edit_button
 
 
 def table_row(person) -> rx.Component:
@@ -200,6 +201,7 @@ def table_row(person) -> rx.Component:
                         "text-gray-400 hover:text-blue-600 p-1.5 rounded-md hover:bg-blue-50",
                     ),
                 ),
+                biography_edit_button(person),
                 rx.el.button(
                     rx.icon("trash-2", class_name="h-3.5 w-3.5"),
                     on_click=lambda: ResearchState.remove_person(person["id"]),
