@@ -308,48 +308,48 @@ def map_stats_overlay() -> rx.Component:
     return rx.el.div(
         rx.el.div(
             rx.el.div(
-                rx.icon("map-pin", class_name="h-4 w-4 text-blue-600"),
+                rx.icon("map-pin", class_name="h-3.5 w-3.5 text-blue-600"),
                 rx.el.span(
                     "Pontos",
-                    class_name="text-[11px] font-semibold uppercase tracking-wider text-gray-500",
+                    class_name="text-[10px] font-semibold uppercase tracking-wider text-gray-500",
                 ),
                 class_name="flex items-center gap-1.5",
             ),
             rx.el.p(
                 ResearchState.total_map_points.to_string(),
-                class_name="text-2xl font-bold text-gray-900 leading-none mt-1",
+                class_name="text-xl font-bold text-gray-900 leading-none mt-1",
             ),
-            class_name="px-4 py-2.5 border-r border-gray-200",
+            class_name="px-3 py-2 border-r border-gray-200",
         ),
         rx.el.div(
             rx.el.div(
-                rx.icon("users", class_name="h-4 w-4 text-emerald-600"),
+                rx.icon("users", class_name="h-3.5 w-3.5 text-emerald-600"),
                 rx.el.span(
                     "Pessoas",
-                    class_name="text-[11px] font-semibold uppercase tracking-wider text-gray-500",
+                    class_name="text-[10px] font-semibold uppercase tracking-wider text-gray-500",
                 ),
                 class_name="flex items-center gap-1.5",
             ),
             rx.el.p(
                 ResearchState.total_people.to_string(),
-                class_name="text-2xl font-bold text-gray-900 leading-none mt-1",
+                class_name="text-xl font-bold text-gray-900 leading-none mt-1",
             ),
-            class_name="px-4 py-2.5 border-r border-gray-200",
+            class_name="px-3 py-2 border-r border-gray-200",
         ),
         rx.el.div(
             rx.el.div(
-                rx.icon("globe", class_name="h-4 w-4 text-amber-600"),
+                rx.icon("globe", class_name="h-3.5 w-3.5 text-amber-600"),
                 rx.el.span(
                     "Cobertura",
-                    class_name="text-[11px] font-semibold uppercase tracking-wider text-gray-500",
+                    class_name="text-[10px] font-semibold uppercase tracking-wider text-gray-500",
                 ),
                 class_name="flex items-center gap-1.5",
             ),
             rx.el.p(
                 f"{ResearchState.geocoding_coverage}%",
-                class_name="text-2xl font-bold text-gray-900 leading-none mt-1",
+                class_name="text-xl font-bold text-gray-900 leading-none mt-1",
             ),
-            class_name="px-4 py-2.5",
+            class_name="px-3 py-2",
         ),
         class_name="absolute top-3 left-1/2 -translate-x-1/2 z-[1000] flex items-center bg-white/95 backdrop-blur-md rounded-xl border border-gray-200 shadow-lg overflow-hidden max-w-[90%]",
     )
@@ -404,29 +404,29 @@ def map_legend_floating() -> rx.Component:
                 "Legenda",
                 class_name="text-[10px] font-bold uppercase tracking-wider text-gray-700",
             ),
-            class_name="flex items-center gap-1.5 mb-2 pb-2 border-b border-gray-100",
+            class_name="flex items-center gap-1.5 mb-1.5 pb-1.5 border-b border-gray-100",
         ),
         rx.el.div(
             rx.el.span(
-                class_name="h-3 w-3 rounded-full bg-emerald-500 ring-2 ring-emerald-100"
+                class_name="h-2.5 w-2.5 rounded-full bg-emerald-500 ring-2 ring-emerald-100"
             ),
             rx.el.span(
                 "Nascimento",
                 class_name="text-[11px] font-medium text-gray-700",
             ),
-            class_name="flex items-center gap-2 py-1",
+            class_name="flex items-center gap-2 py-0.5",
         ),
         rx.el.div(
             rx.el.span(
-                class_name="h-3 w-3 rounded-full bg-red-500 ring-2 ring-red-100"
+                class_name="h-2.5 w-2.5 rounded-full bg-red-500 ring-2 ring-red-100"
             ),
             rx.el.span(
                 "Falecimento",
                 class_name="text-[11px] font-medium text-gray-700",
             ),
-            class_name="flex items-center gap-2 py-1",
+            class_name="flex items-center gap-2 py-0.5",
         ),
-        class_name="absolute top-20 right-3 z-[1000] bg-white/95 backdrop-blur-md rounded-xl border border-gray-200 shadow-lg p-3",
+        class_name="absolute top-3 right-3 z-[1000] bg-white/95 backdrop-blur-md rounded-xl border border-gray-200 shadow-lg p-2.5",
     )
 
 
