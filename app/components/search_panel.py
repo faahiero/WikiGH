@@ -61,19 +61,27 @@ def workbench_header() -> rx.Component:
 def search_result_item(item) -> rx.Component:
     return rx.el.button(
         rx.el.div(
-            rx.el.div(
-                rx.icon(
-                    "file-text",
+            rx.cond(
+                item["image_url"] != "",
+                rx.el.img(
+                    src=item["image_url"],
+                    alt=item["title"],
+                    class_name="h-9 w-9 rounded-lg object-cover shrink-0",
+                ),
+                rx.el.div(
+                    rx.icon(
+                        "file-text",
+                        class_name=rx.cond(
+                            ResearchState.dark_mode,
+                            "h-4 w-4 text-blue-400",
+                            "h-4 w-4 text-blue-600",
+                        ),
+                    ),
                     class_name=rx.cond(
                         ResearchState.dark_mode,
-                        "h-4 w-4 text-blue-400",
-                        "h-4 w-4 text-blue-600",
+                        "h-9 w-9 rounded-lg bg-blue-950/40 flex items-center justify-center shrink-0",
+                        "h-9 w-9 rounded-lg bg-blue-50 flex items-center justify-center shrink-0",
                     ),
-                ),
-                class_name=rx.cond(
-                    ResearchState.dark_mode,
-                    "h-9 w-9 rounded-lg bg-blue-950/40 flex items-center justify-center shrink-0",
-                    "h-9 w-9 rounded-lg bg-blue-50 flex items-center justify-center shrink-0",
                 ),
             ),
             rx.el.div(

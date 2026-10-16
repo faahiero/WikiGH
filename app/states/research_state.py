@@ -307,6 +307,7 @@ class SearchResult(TypedDict):
     title: str
     snippet: str
     pageid: int
+    image_url: str
 
 
 class PersonRecord(TypedDict):
@@ -549,7 +550,9 @@ def _wiki_search(term: str, limit: int = 8) -> list[dict] | None:
             "gsrsearch": term,
             "gsrnamespace": "0",
             "gsrlimit": str(limit),
-            "prop": "extracts|pageprops",
+            "prop": "extracts|pageprops|pageimages",
+            "piprop": "thumbnail",
+            "pithumbsize": "96",
             "exintro": 1,
             "explaintext": 1,
             "exchars": 320,
@@ -572,6 +575,7 @@ def _wiki_search(term: str, limit: int = 8) -> list[dict] | None:
                 "title": p.get("title", ""),
                 "snippet": _strip_html(p.get("snippet", "")),
                 "pageid": int(p.get("pageid", 0)),
+                "image_url": (p.get("thumbnail") or {}).get("source") or "",
             }
         )
     return out
@@ -2405,6 +2409,7 @@ class ResearchState(rx.State):
                 "title": r.get("title", ""),
                 "snippet": _strip_html(r.get("snippet", "")),
                 "pageid": int(r.get("pageid", 0)),
+                "image_url": r.get("image_url", ""),
             }
             for r in results
         ]
@@ -2446,6 +2451,7 @@ class ResearchState(rx.State):
                 "title": r.get("title", ""),
                 "snippet": _strip_html(r.get("snippet", "")),
                 "pageid": int(r.get("pageid", 0)),
+                "image_url": r.get("image_url", ""),
             }
             for r in results
         ]
