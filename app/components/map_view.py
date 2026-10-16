@@ -4,18 +4,67 @@ from reflex_enterprise.components.map.types import latlng
 from app.states.research_state import ResearchState
 
 
+def connection_details(conn) -> rx.Component:
+    return rx.el.div(
+        rx.el.div(
+            rx.el.span(class_name=conn["color_class"]),
+            rx.el.p(
+                conn["display_name"], class_name="text-sm font-bold break-words"
+            ),
+            class_name="flex items-center gap-2",
+        ),
+        rx.el.p(conn["id"], class_name="text-[10px] font-mono text-gray-500"),
+        rx.el.div(
+            rx.icon("baby", class_name="h-3.5 w-3.5 shrink-0 text-emerald-600"),
+            rx.el.div(
+                rx.el.p(
+                    f"Nascimento: {conn['birth_place']}",
+                    class_name="text-xs break-words",
+                ),
+                rx.el.p(
+                    conn["birth_date_br"],
+                    class_name="text-[11px] text-gray-500",
+                ),
+            ),
+            class_name="flex items-start gap-2 mt-2",
+        ),
+        rx.el.div(
+            rx.icon("flower-2", class_name="h-3.5 w-3.5 shrink-0 text-red-600"),
+            rx.el.div(
+                rx.el.p(
+                    f"Falecimento: {conn['death_place']}",
+                    class_name="text-xs break-words",
+                ),
+                rx.el.p(
+                    conn["death_date_br"],
+                    class_name="text-[11px] text-gray-500",
+                ),
+            ),
+            class_name="flex items-start gap-2 mt-2",
+        ),
+        rx.el.p(
+            "Conexão geográfica em linha reta; não representa um percurso de viagem.",
+            class_name="text-[10px] text-gray-500 leading-snug mt-2 border-t border-gray-200 pt-2",
+        ),
+        class_name="w-60 max-w-full bg-white text-gray-900 font-['Inter']",
+    )
+
+
 def connection_polyline(conn) -> rx.Component:
     return rxe.map.polyline(
+        rxe.map.tooltip(connection_details(conn)),
+        rxe.map.popup(connection_details(conn)),
         positions=[
             latlng(lat=conn["birth_lat"], lng=conn["birth_lng"]),
             latlng(lat=conn["death_lat"], lng=conn["death_lng"]),
         ],
         path_options=rxe.map.path_options(
-            color=rx.cond(conn["is_selected"], "#2563eb", "#60a5fa"),
-            weight=rx.cond(conn["is_selected"], 3, 2),
-            opacity=rx.cond(conn["is_selected"], 0.9, 0.45),
+            color=conn["color"],
+            weight=rx.cond(conn["is_selected"], 5, 3),
+            opacity=rx.cond(conn["is_selected"], 1.0, 0.8),
             dash_array="6 8",
         ),
+        key=conn["id"],
     )
 
 
@@ -396,6 +445,38 @@ def map_top_places_overlay() -> rx.Component:
     )
 
 
+def route_legend_item(conn) -> rx.Component:
+    return rx.el.div(
+        rx.el.span(class_name=conn["color_class"]),
+        rx.el.div(
+            rx.el.p(
+                conn["display_name"],
+                class_name="text-[11px] font-medium truncate",
+            ),
+            rx.el.p(
+                conn["id"], class_name="text-[9px] font-mono text-gray-500"
+            ),
+            class_name="min-w-0 flex-1",
+        ),
+        rx.cond(
+            conn["is_selected"],
+            rx.icon(
+                "focus",
+                class_name="h-3 w-3 shrink-0 text-blue-600",
+                aria_label="En foco",
+            ),
+            rx.fragment(),
+        ),
+        title=f"{conn['display_name']} · {conn['id']} — Nascimento: {conn['birth_place']} ({conn['birth_date_br']}) → Falecimento: {conn['death_place']} ({conn['death_date_br']})",
+        key=conn["id"],
+        class_name=rx.cond(
+            ResearchState.dark_mode,
+            "flex items-center gap-2 py-1 text-gray-200 bg-gray-900",
+            "flex items-center gap-2 py-1 text-gray-700 bg-white",
+        ),
+    )
+
+
 def map_legend_floating() -> rx.Component:
     return rx.el.div(
         rx.el.div(
@@ -426,7 +507,46 @@ def map_legend_floating() -> rx.Component:
             ),
             class_name="flex items-center gap-2 py-0.5",
         ),
-        class_name="absolute top-3 right-3 z-[1000] bg-white/95 backdrop-blur-md rounded-xl border border-gray-200 shadow-lg p-2.5",
+        rx.cond(
+            ResearchState.map_connections.length() > 0,
+            rx.el.div(
+                rx.el.p(
+                    f"Conexões ({ResearchState.map_connections.length()})",
+                    class_name=rx.cond(
+                        ResearchState.dark_mode,
+                        "text-[10px] font-bold text-gray-200 mb-1",
+                        "text-[10px] font-bold text-gray-700 mb-1",
+                    ),
+                ),
+                rx.el.div(
+                    rx.foreach(
+                        ResearchState.map_connections, route_legend_item
+                    ),
+                    class_name="max-h-28 overflow-y-auto overscroll-contain",
+                    tab_index=0,
+                    aria_label="Identificação das conexões biográficas",
+                ),
+                rx.el.p(
+                    "Linhas retas, não percursos de viagem. Clique na linha para detalhes.",
+                    class_name=rx.cond(
+                        ResearchState.dark_mode,
+                        "text-[10px] text-gray-400 leading-snug mt-1",
+                        "text-[10px] text-gray-600 leading-snug mt-1",
+                    ),
+                ),
+                class_name=rx.cond(
+                    ResearchState.dark_mode,
+                    "mt-1.5 pt-1.5 border-t border-gray-700",
+                    "mt-1.5 pt-1.5 border-t border-gray-200",
+                ),
+            ),
+            rx.fragment(),
+        ),
+        class_name=rx.cond(
+            ResearchState.dark_mode,
+            "absolute top-3 right-3 z-[1000] w-48 max-w-[45%] bg-gray-900/95 text-gray-200 backdrop-blur-md rounded-xl border border-gray-700 p-2.5",
+            "absolute top-3 right-3 z-[1000] w-48 max-w-[45%] bg-white/95 text-gray-700 backdrop-blur-md rounded-xl border border-gray-200 p-2.5",
+        ),
     )
 
 

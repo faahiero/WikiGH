@@ -815,6 +815,15 @@ class EnrichedPerson(TypedDict):
 class MapConnection(TypedDict):
     id: str
     name: str
+    display_name: str
+    context_label: str
+    is_homonym: bool
+    birth_place: str
+    death_place: str
+    birth_date_br: str
+    death_date_br: str
+    color: str
+    color_class: str
     birth_lat: float
     birth_lng: float
     death_lat: float
@@ -1763,21 +1772,52 @@ class ResearchState(rx.State):
 
     @rx.var
     def map_connections(self) -> list[MapConnection]:
+        from hashlib import sha256
+        from math import isfinite
+
+        palette: tuple[tuple[str, str], ...] = (
+            ("#2563eb", "h-1 w-5 shrink-0 rounded-full bg-blue-600"),
+            ("#9333ea", "h-1 w-5 shrink-0 rounded-full bg-purple-600"),
+            ("#d97706", "h-1 w-5 shrink-0 rounded-full bg-amber-600"),
+            ("#0891b2", "h-1 w-5 shrink-0 rounded-full bg-cyan-600"),
+            ("#db2777", "h-1 w-5 shrink-0 rounded-full bg-pink-600"),
+            ("#4f46e5", "h-1 w-5 shrink-0 rounded-full bg-indigo-600"),
+            ("#ea580c", "h-1 w-5 shrink-0 rounded-full bg-orange-600"),
+            ("#0d9488", "h-1 w-5 shrink-0 rounded-full bg-teal-600"),
+            ("#7c3aed", "h-1 w-5 shrink-0 rounded-full bg-violet-600"),
+            ("#a16207", "h-1 w-5 shrink-0 rounded-full bg-yellow-700"),
+        )
         focus_id = self.selected_person_id
-        people_iter = self.people
+        people_iter = self.people_enriched
         if focus_id:
-            people_iter = [p for p in self.people if p["id"] == focus_id]
+            people_iter = [p for p in people_iter if p["id"] == focus_id]
         connections: list[MapConnection] = []
         offset = 0.0065
         for p in people_iter:
-            has_birth = p["birth_lat"] != 0.0 or p["birth_lng"] != 0.0
-            has_death = p["death_lat"] != 0.0 or p["death_lng"] != 0.0
-            if not (has_birth and has_death):
-                continue
             blat = p["birth_lat"]
             blng = p["birth_lng"]
             dlat = p["death_lat"]
             dlng = p["death_lng"]
+            has_birth = (
+                isfinite(blat)
+                and isfinite(blng)
+                and -90.0 <= blat <= 90.0
+                and -180.0 <= blng <= 180.0
+                and (blat != 0.0 or blng != 0.0)
+            )
+            has_death = (
+                isfinite(dlat)
+                and isfinite(dlng)
+                and -90.0 <= dlat <= 90.0
+                and -180.0 <= dlng <= 180.0
+                and (dlat != 0.0 or dlng != 0.0)
+            )
+            if not (has_birth and has_death):
+                continue
+            color_index = int.from_bytes(
+                sha256(p["id"].encode("utf-8")).digest()[:8], "big"
+            ) % len(palette)
+            color, color_class = palette[color_index]
             overlap = abs(blat - dlat) < 0.001 and abs(blng - dlng) < 0.001
             if overlap:
                 blat = blat + offset
@@ -1788,6 +1828,15 @@ class ResearchState(rx.State):
                 {
                     "id": p["id"],
                     "name": p["name"],
+                    "display_name": p["display_name"],
+                    "context_label": p["context_label"],
+                    "is_homonym": p["is_homonym"],
+                    "birth_place": p["birth_place"] or "Local não informado",
+                    "death_place": p["death_place"] or "Local não informado",
+                    "birth_date_br": p["birth_date_br"] or "Data não informada",
+                    "death_date_br": p["death_date_br"] or "Data não informada",
+                    "color": color,
+                    "color_class": color_class,
                     "birth_lat": blat,
                     "birth_lng": blng,
                     "death_lat": dlat,
