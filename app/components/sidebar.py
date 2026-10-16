@@ -3,13 +3,12 @@ from app.states.research_state import ResearchState
 
 
 def nav_link(icon: str, label: str, view: str) -> rx.Component:
-    is_active = ResearchState.active_view == view
     return rx.el.button(
         rx.icon(icon, class_name="h-3.5 w-3.5"),
         rx.el.span(label),
         on_click=lambda: ResearchState.set_active_view(view),
         class_name=rx.cond(
-            is_active,
+            ResearchState.active_view == view,
             rx.cond(
                 ResearchState.dark_mode,
                 "flex items-center gap-2 px-3 py-1.5 rounded-md text-xs font-medium transition-colors bg-blue-950/40 text-blue-400 border border-blue-900 w-full text-left",
@@ -96,6 +95,7 @@ def sidebar() -> rx.Component:
                     ),
                 ),
                 nav_link("table", "Tabela completa", "table"),
+                nav_link("folders", "Coleções temáticas", "collections"),
                 class_name="flex flex-col px-2 pb-3 flex-1 overflow-y-auto",
             ),
             rx.el.div(

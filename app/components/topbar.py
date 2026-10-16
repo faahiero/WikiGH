@@ -16,6 +16,7 @@ def topbar() -> rx.Component:
                         ("timeline", "Visualização"),
                         ("analytics", "Análises"),
                         ("table", "Composição"),
+                        ("collections", "Composição"),
                         "Painel",
                     ),
                     class_name=rx.cond(
@@ -33,6 +34,7 @@ def topbar() -> rx.Component:
                         ("timeline", "Linha do tempo"),
                         ("analytics", "Análises"),
                         ("table", "Tabela completa"),
+                        ("collections", "Coleções temáticas"),
                         "Dashboard",
                     ),
                     class_name=rx.cond(
@@ -68,6 +70,10 @@ def topbar() -> rx.Component:
                             "table",
                             "Composição completa com filtro e exportação.",
                         ),
+                        (
+                            "collections",
+                            "Organize biografias em coleções privadas por tema de pesquisa.",
+                        ),
                         "",
                     ),
                     class_name=rx.cond(
@@ -78,6 +84,17 @@ def topbar() -> rx.Component:
                 ),
             ),
             rx.el.div(
+                rx.el.button(
+                    rx.icon("folders", class_name="h-4 w-4"),
+                    on_click=ResearchState.set_active_view("collections"),
+                    aria_label="Abrir coleções temáticas",
+                    title="Coleções temáticas",
+                    class_name=rx.cond(
+                        ResearchState.dark_mode,
+                        "lg:hidden rounded-lg border border-gray-700 bg-gray-900 p-2 text-blue-400 focus-visible:ring-2 focus-visible:ring-blue-500",
+                        "lg:hidden rounded-lg border border-gray-200 bg-white p-2 text-blue-600 focus-visible:ring-2 focus-visible:ring-blue-600",
+                    ),
+                ),
                 rx.cond(
                     ResearchState.storage_ready,
                     rx.el.div(

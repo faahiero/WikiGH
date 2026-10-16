@@ -247,6 +247,7 @@ class AuthState(rx.State):
     @rx.event
     async def logout(self):
         from app.states.research_state import ResearchState
+        from app.states.collections_state import CollectionsState
 
         name = self.current_user.get("name", "")
         self.is_authenticated = False
@@ -263,6 +264,8 @@ class AuthState(rx.State):
         research = await self.get_state(ResearchState)
         research.landing_mode = True
         research.active_view = "research"
+        collections = await self.get_state(CollectionsState)
+        collections._clear()
         yield rx.toast(
             title="Sessão encerrada",
             description=f"Até logo, {name}!"

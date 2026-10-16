@@ -1112,8 +1112,14 @@ class ResearchState(rx.State):
             )
 
     @rx.event
-    def set_active_view(self, view: str):
+    async def set_active_view(self, view: str):
         self.active_view = view
+        if view == "collections":
+            from app.states.collections_state import CollectionsState
+
+            collections = await self.get_state(CollectionsState)
+            collections._clear()
+            yield CollectionsState.reload_collections
 
     @rx.event
     def set_timeline_filter(self, value: str):

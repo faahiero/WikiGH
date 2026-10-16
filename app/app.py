@@ -14,6 +14,7 @@ from app.components.timeline_view import timeline_view
 from app.components.analytics_view import analytics_view
 from app.components.table_view import table_view
 from app.components.dashboard_view import dashboard_view
+from app.components.collections_view import collections_view
 
 
 def research_section() -> rx.Component:
@@ -43,6 +44,7 @@ def main_content() -> rx.Component:
         ("timeline", timeline_view()),
         ("analytics", analytics_view()),
         ("table", table_view()),
+        ("collections", collections_view()),
         dashboard_view(),
     )
 
