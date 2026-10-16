@@ -105,11 +105,6 @@ def landing_nav() -> rx.Component:
                         "text-sm font-semibold text-gray-700 hover:text-blue-700 px-4 py-2 rounded-lg transition-all",
                     ),
                 ),
-                rx.el.button(
-                    "Acessar Plataforma",
-                    on_click=ResearchState.enter_app,
-                    class_name="text-sm font-semibold text-white bg-blue-600 hover:bg-blue-700 px-4 py-2 rounded-lg shadow-xs hover:shadow transition-all",
-                ),
                 class_name="flex items-center gap-4",
             ),
             class_name="max-w-7xl mx-auto flex items-center justify-between px-6 h-16",
@@ -152,8 +147,11 @@ def landing_hero() -> rx.Component:
                 ),
                 rx.el.div(
                     rx.el.button(
-                        "Iniciar Pesquisa Gratuita",
-                        on_click=ResearchState.enter_app,
+                        "Começar gratuitamente",
+                        on_click=[
+                            AuthState.set_auth_mode("register"),
+                            ResearchState.enter_app,
+                        ],
                         class_name="inline-flex items-center gap-2 text-base font-semibold text-white bg-blue-600 hover:bg-blue-700 px-6 py-3 rounded-lg shadow-md hover:shadow-lg hover:-translate-y-0.5 transition-all",
                     ),
                     rx.el.a(
@@ -385,8 +383,11 @@ def landing_cta() -> rx.Component:
                     class_name="text-blue-100 max-w-2xl mx-auto mb-8 text-base sm:text-lg leading-relaxed",
                 ),
                 rx.el.button(
-                    "Acessar Plataforma Agora",
-                    on_click=ResearchState.enter_app,
+                    "Começar gratuitamente",
+                    on_click=[
+                        AuthState.set_auth_mode("register"),
+                        ResearchState.enter_app,
+                    ],
                     class_name="inline-flex items-center gap-2 text-base font-bold text-blue-700 bg-white hover:bg-blue-50 px-8 py-4 rounded-xl shadow-lg transition-all hover:scale-105",
                 ),
                 class_name="text-center max-w-4xl mx-auto",
