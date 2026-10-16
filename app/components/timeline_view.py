@@ -493,7 +493,7 @@ def timeline_view() -> rx.Component:
                 rx.el.div(
                     rx.el.div(
                         rx.icon("scroll-text", class_name="h-4 w-4 text-white"),
-                        "h-9 w-9 rounded-lg bg-linear-to-br from-amber-500 to-amber-700 flex items-center justify-center shrink-0",
+                        class_name="h-9 w-9 rounded-lg bg-linear-to-br from-amber-500 to-amber-700 flex items-center justify-center shrink-0",
                     ),
                     rx.el.div(
                         rx.el.span(
