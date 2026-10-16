@@ -1,4 +1,4 @@
-reflex[db]==0.9.8
+reflex[db]==0.9.12
 pypdf
 reflex-enterprise
 requests
