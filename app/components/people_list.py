@@ -1,6 +1,7 @@
 import reflex as rx
 from app.states.research_state import ResearchState
 from app.components.biography_edit import biography_edit_button
+from app.components.map_view import demo_notice
 
 
 def person_card(person) -> rx.Component:
@@ -154,6 +155,7 @@ def person_card(person) -> rx.Component:
             ),
             rx.fragment(),
         ),
+        demo_notice(person["demo_label"]),
         rx.el.p(
             person["summary"],
             class_name=rx.cond(
@@ -266,7 +268,7 @@ def people_list() -> rx.Component:
                     ),
                 ),
                 rx.el.p(
-                    "Composição em comum dos artigos confirmados nesta sessão.",
+                    "Biografias salvas e exemplos de demonstração identificados.",
                     class_name=rx.cond(
                         ResearchState.dark_mode,
                         "text-sm text-gray-400 mt-0.5",

@@ -9,6 +9,150 @@ from pathlib import Path
 from datetime import datetime
 from typing import Any, TypedDict
 from contextlib import closing
+from math import asin, cos, isfinite, radians, sin, sqrt
+
+
+DISTANCE_LABEL = "Distância estimada em linha reta"
+DEMO_LABEL = "Demonstração GeoHist · coordenadas aproximadas das cidades"
+DEMO_SEED_MARKER = 1195922225
+
+
+def valid_map_coordinate(lat: float, lng: float) -> bool:
+    return (
+        isfinite(lat)
+        and isfinite(lng)
+        and -90 <= lat <= 90
+        and -180 <= lng <= 180
+        and (lat != 0 or lng != 0)
+    )
+
+
+def haversine_distance_km(
+    birth_lat: float,
+    birth_lng: float,
+    death_lat: float,
+    death_lng: float,
+    is_living: bool = False,
+) -> float | None:
+    """Shortest surface displacement on a mean-radius Earth, not travel distance."""
+    if is_living or not (
+        valid_map_coordinate(birth_lat, birth_lng)
+        and valid_map_coordinate(death_lat, death_lng)
+    ):
+        return None
+    lat1, lat2 = radians(birth_lat), radians(death_lat)
+    dlat, dlng = lat2 - lat1, radians(death_lng - birth_lng)
+    a = sin(dlat / 2) ** 2 + cos(lat1) * cos(lat2) * sin(dlng / 2) ** 2
+    return 6371.0088 * 2 * asin(sqrt(min(1.0, max(0.0, a))))
+
+
+def format_distance_km(distance: float) -> str:
+    value = (
+        f"{distance:,.1f}".replace(",", "_").replace(".", ",").replace("_", ".")
+    )
+    return f"{value} km"
+
+
+def seed_demo_biographies(db_path: Path) -> int:
+    """One-time seed; the app-owned SQLite application_id header is the marker."""
+    examples = (
+        (
+            "Q937",
+            "Albert Einstein",
+            "Alemã, suíça e estadunidense",
+            "1879-03-14",
+            "1955-04-18",
+            "Ulm, Alemanha",
+            "Princeton, Estados Unidos",
+            48.4011,
+            9.9876,
+            40.3573,
+            -74.6672,
+            "Albert_Einstein",
+            "físico",
+            "Albert Einstein foi um físico conhecido pela teoria da relatividade.",
+        ),
+        (
+            "Q7186",
+            "Marie Curie",
+            "Polonesa e francesa",
+            "1867-11-07",
+            "1934-07-04",
+            "Varsóvia, Polônia",
+            "Passy, Alta Saboia, França",
+            52.2297,
+            21.0122,
+            45.9236,
+            6.6950,
+            "Marie_Curie",
+            "física e química",
+            "Marie Curie foi uma física e química pioneira no estudo da radioatividade.",
+        ),
+    )
+    try:
+        with closing(sqlite3.connect(db_path, timeout=10)) as conn:
+            with conn:
+                conn.execute("BEGIN IMMEDIATE")
+                marker = conn.execute("PRAGMA application_id").fetchone()[0]
+                if marker == DEMO_SEED_MARKER:
+                    return 0
+                if marker != 0:
+                    raise ValueError(
+                        "O banco já possui uma identificação de aplicativo diferente."
+                    )
+                inserted = 0
+                for (
+                    qid,
+                    name,
+                    nationality,
+                    birth_date,
+                    death_date,
+                    birth_place,
+                    death_place,
+                    blat,
+                    blng,
+                    dlat,
+                    dlng,
+                    title,
+                    occupation,
+                    summary,
+                ) in examples:
+                    cursor = conn.execute(
+                        """INSERT OR IGNORE INTO people (
+                        id, name, nationality, birth_date, death_date, birth_place,
+                        death_place, birth_lat, birth_lng, death_lat, death_lng,
+                        article_url, summary, searched_at, completeness, image_url,
+                        article_title, is_living, occupation, description
+                        ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)""",
+                        (
+                            qid,
+                            name,
+                            nationality,
+                            birth_date,
+                            death_date,
+                            birth_place,
+                            death_place,
+                            blat,
+                            blng,
+                            dlat,
+                            dlng,
+                            f"https://pt.wikipedia.org/wiki/{title}",
+                            f"{DEMO_LABEL}. {summary}",
+                            "",
+                            100,
+                            "",
+                            name,
+                            0,
+                            occupation,
+                            DEMO_LABEL,
+                        ),
+                    )
+                    inserted += cursor.rowcount
+                conn.execute(f"PRAGMA application_id = {DEMO_SEED_MARKER}")
+                return inserted
+    except Exception as e:
+        logging.exception(f"Error: {e}")
+        raise
 
 
 WIKI_API = "https://pt.wikipedia.org/w/api.php"
@@ -340,10 +484,10 @@ def load_people_db() -> list:
                     "death_date": r["death_date"],
                     "birth_place": r["birth_place"],
                     "death_place": r["death_place"],
-                    "birth_lat": float(r["birth_lat"]),
-                    "birth_lng": float(r["birth_lng"]),
-                    "death_lat": float(r["death_lat"]),
-                    "death_lng": float(r["death_lng"]),
+                    "birth_lat": float(r["birth_lat"] or 0),
+                    "birth_lng": float(r["birth_lng"] or 0),
+                    "death_lat": float(r["death_lat"] or 0),
+                    "death_lng": float(r["death_lng"] or 0),
                     "article_url": r["article_url"],
                     "summary": r["summary"],
                     "searched_at": r["searched_at"],
@@ -985,6 +1129,7 @@ class MapPoint(TypedDict):
     is_living: bool
     occupation: str
     summary: str
+    demo_label: str
 
 
 class EnrichedPerson(TypedDict):
@@ -1013,6 +1158,9 @@ class EnrichedPerson(TypedDict):
     is_homonym: bool
     short_id: str
     display_name: str
+    demo_label: str
+    has_birth_coordinate: bool
+    has_death_coordinate: bool
 
 
 class MapConnection(TypedDict):
@@ -1032,6 +1180,10 @@ class MapConnection(TypedDict):
     death_lat: float
     death_lng: float
     is_selected: bool
+    distance_km: float
+    distance_display: str
+    distance_label: str
+    demo_label: str
 
 
 class TimelineEvent(TypedDict):
@@ -1416,56 +1568,44 @@ class ResearchState(rx.State):
         if refresh_collections:
             yield CollectionsState.reload_collections
 
-    @rx.event
+    @rx.event(background=True)
     async def load_data(self):
         import random
 
         await asyncio.to_thread(init_db)
         try:
-            live = await asyncio.to_thread(_fetch_dynamic_suggestions, 7)
-            if live and len(live) >= 4:
-                self.dynamic_suggestions = live
-            else:
-                self.dynamic_suggestions = random.sample(SUGGESTION_POOL, k=7)
-        except Exception as e:
-            logging.exception(f"Erro ao gerar sugestões dinâmicas: {e}")
-            try:
-                self.dynamic_suggestions = random.sample(SUGGESTION_POOL, k=7)
-            except Exception as e2:
-                logging.exception(f"Erro no fallback de sugestões: {e2}")
-        try:
-            self.people = await asyncio.to_thread(load_people_db)
-            self.history = await asyncio.to_thread(load_history_db)
-            self.storage_ready = True
-            self.last_persist_action = "carregado"
-            people_count = len(self.people)
-            history_count = len(self.history)
-            if people_count > 0 or history_count > 0:
-                yield rx.toast(
-                    title="Dados restaurados",
-                    description=f"{people_count} pessoa(s) e {history_count} busca(s) carregados do armazenamento local.",
-                    position="bottom-right",
-                    duration=4000,
-                    close_button=True,
-                )
-            else:
-                yield rx.toast(
-                    title="Armazenamento local pronto",
-                    description="Nenhum registro salvo ainda. Sua primeira pesquisa confirmada será salva automaticamente.",
-                    position="bottom-right",
-                    duration=3500,
-                    close_button=True,
-                )
-        except Exception as e:
-            logging.exception(f"Erro ao carregar dados persistidos: {e}")
-            self.storage_ready = False
+            await asyncio.to_thread(seed_demo_biographies, DB_PATH)
+            people = await asyncio.to_thread(load_people_db)
+            history = await asyncio.to_thread(load_history_db)
+            async with self:
+                self.people = people
+                self.history = history
+                self.storage_ready = True
+                self.last_persist_action = "carregado"
             yield rx.toast(
-                title="Falha ao restaurar dados",
-                description="Não foi possível ler do armazenamento local. A sessão começará vazia.",
-                position="bottom-right",
-                duration=5000,
+                "Dados restaurados",
+                description=f"{len(people)} pessoa(s) e {len(history)} busca(s) carregados. Exemplos de demonstração estão identificados.",
+                duration=4000,
                 close_button=True,
             )
+        except Exception as e:
+            logging.exception(f"Error: {e}")
+            async with self:
+                self.storage_ready = False
+            yield rx.toast("Falha ao restaurar dados", close_button=True)
+        try:
+            live = await asyncio.to_thread(_fetch_dynamic_suggestions, 7)
+            suggestions = (
+                live
+                if live and len(live) >= 4
+                else random.sample(SUGGESTION_POOL, k=7)
+            )
+            async with self:
+                self.dynamic_suggestions = suggestions
+        except Exception as e:
+            logging.exception(f"Erro ao gerar sugestões dinâmicas: {e}")
+            async with self:
+                self.dynamic_suggestions = random.sample(SUGGESTION_POOL, k=7)
 
     @rx.event
     async def set_active_view(self, view: str):
@@ -1952,6 +2092,17 @@ class ResearchState(rx.State):
                     "is_homonym": is_hom,
                     "short_id": short_id,
                     "display_name": display_name,
+                    "demo_label": DEMO_LABEL
+                    if p.get("description", "") == DEMO_LABEL
+                    else "",
+                    "has_birth_coordinate": valid_map_coordinate(
+                        p["birth_lat"], p["birth_lng"]
+                    ),
+                    "has_death_coordinate": not (
+                        p.get("is_living", False)
+                        or p["death_date"] == "Vivo(a)"
+                    )
+                    and valid_map_coordinate(p["death_lat"], p["death_lng"]),
                 }
             )
         return out
@@ -2027,8 +2178,8 @@ class ResearchState(rx.State):
             enriched_iter = enriched
         offset = 0.0065
         for p in enriched_iter:
-            has_birth = p["birth_lat"] != 0.0 or p["birth_lng"] != 0.0
-            has_death = p["death_lat"] != 0.0 or p["death_lng"] != 0.0
+            has_birth = p["has_birth_coordinate"]
+            has_death = p["has_death_coordinate"]
             overlap = False
             if has_birth and has_death:
                 if (
@@ -2053,8 +2204,8 @@ class ResearchState(rx.State):
                 blat = p["birth_lat"]
                 blng = p["birth_lng"]
                 if overlap:
-                    blat = blat + offset
-                    blng = blng - offset
+                    blat = min(90.0, max(-90.0, blat + offset))
+                    blng = (blng - offset + 180.0) % 360.0 - 180.0
                 points.append(
                     {
                         "id": f"{p['id']}_b",
@@ -2080,14 +2231,15 @@ class ResearchState(rx.State):
                         "is_living": is_living_val,
                         "occupation": occupation_val,
                         "summary": summary_val,
+                        "demo_label": p["demo_label"],
                     }
                 )
             if has_death:
                 dlat = p["death_lat"]
                 dlng = p["death_lng"]
                 if overlap:
-                    dlat = dlat - offset
-                    dlng = dlng + offset
+                    dlat = min(90.0, max(-90.0, dlat - offset))
+                    dlng = (dlng + offset + 180.0) % 360.0 - 180.0
                 points.append(
                     {
                         "id": f"{p['id']}_d",
@@ -2120,7 +2272,6 @@ class ResearchState(rx.State):
     @rx.var
     def map_connections(self) -> list[MapConnection]:
         from hashlib import sha256
-        from math import isfinite
 
         palette: tuple[tuple[str, str], ...] = (
             ("#2563eb", "h-1 w-5 shrink-0 rounded-full bg-blue-600"),
@@ -2139,38 +2290,24 @@ class ResearchState(rx.State):
         if focus_id:
             people_iter = [p for p in people_iter if p["id"] == focus_id]
         connections: list[MapConnection] = []
-        offset = 0.0065
         for p in people_iter:
             blat = p["birth_lat"]
             blng = p["birth_lng"]
             dlat = p["death_lat"]
             dlng = p["death_lng"]
-            has_birth = (
-                isfinite(blat)
-                and isfinite(blng)
-                and -90.0 <= blat <= 90.0
-                and -180.0 <= blng <= 180.0
-                and (blat != 0.0 or blng != 0.0)
+            distance = haversine_distance_km(
+                blat,
+                blng,
+                dlat,
+                dlng,
+                p["is_living"] or p["death_date"] == "Vivo(a)",
             )
-            has_death = (
-                isfinite(dlat)
-                and isfinite(dlng)
-                and -90.0 <= dlat <= 90.0
-                and -180.0 <= dlng <= 180.0
-                and (dlat != 0.0 or dlng != 0.0)
-            )
-            if not (has_birth and has_death):
+            if distance is None:
                 continue
             color_index = int.from_bytes(
                 sha256(p["id"].encode("utf-8")).digest()[:8], "big"
             ) % len(palette)
             color, color_class = palette[color_index]
-            overlap = abs(blat - dlat) < 0.001 and abs(blng - dlng) < 0.001
-            if overlap:
-                blat = blat + offset
-                blng = blng - offset
-                dlat = dlat - offset
-                dlng = dlng + offset
             connections.append(
                 {
                     "id": p["id"],
@@ -2189,6 +2326,10 @@ class ResearchState(rx.State):
                     "death_lat": dlat,
                     "death_lng": dlng,
                     "is_selected": p["id"] == focus_id,
+                    "distance_km": distance,
+                    "distance_display": format_distance_km(distance),
+                    "distance_label": DISTANCE_LABEL,
+                    "demo_label": p["demo_label"],
                 }
             )
         return connections
@@ -2302,6 +2443,7 @@ class ResearchState(rx.State):
                     "article_title": p.get("article_title", ""),
                     "occupation": p.get("occupation", ""),
                     "is_living": "true" if p.get("is_living") else "false",
+                    "demo_label": p["demo_label"],
                 }
         return {
             "id": "",
@@ -2322,7 +2464,28 @@ class ResearchState(rx.State):
             "article_title": "",
             "occupation": "",
             "is_living": "false",
+            "demo_label": "",
         }
+
+    @rx.var
+    def selected_route_distance(self) -> str:
+        return next(
+            (
+                c["distance_display"]
+                for c in self.map_connections
+                if c["id"] == self.selected_person_id
+            ),
+            "",
+        )
+
+    @rx.var
+    def selected_route_message(self) -> str:
+        if (
+            self.selected_person["is_living"] == "true"
+            or self.selected_person["death_date"] == "Vivo(a)"
+        ):
+            return "Sem conexão de falecimento para pessoa viva."
+        return "Sem conexão completa: coordenadas de nascimento ou falecimento ausentes ou inválidas. Os pontos válidos continuam visíveis."
 
     @rx.var
     def has_selected_person(self) -> bool:

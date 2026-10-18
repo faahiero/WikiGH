@@ -1,7 +1,34 @@
 import reflex as rx
 import reflex_enterprise as rxe
 from reflex_enterprise.components.map.types import latlng
-from app.states.research_state import ResearchState
+from app.states.research_state import ResearchState, DISTANCE_LABEL
+
+
+def demo_notice(label) -> rx.Component:
+    return rx.cond(
+        label != "",
+        rx.el.p(
+            label,
+            class_name=rx.cond(
+                ResearchState.dark_mode,
+                "text-[10px] leading-snug text-blue-300 bg-gray-950 rounded-md px-2 py-1 mt-2",
+                "text-[10px] leading-snug text-blue-700 bg-blue-50 rounded-md px-2 py-1 mt-2",
+            ),
+        ),
+        rx.fragment(),
+    )
+
+
+def distance_details(value, label) -> rx.Component:
+    return rx.el.div(
+        rx.el.p(label, class_name="text-[10px] leading-snug"),
+        rx.el.p(value, class_name="text-sm font-bold tabular-nums"),
+        class_name=rx.cond(
+            ResearchState.dark_mode,
+            "mt-2 rounded-md border border-gray-700 bg-gray-950 px-2 py-1.5 text-gray-100",
+            "mt-2 rounded-md border border-gray-200 bg-gray-50 px-2 py-1.5 text-gray-900",
+        ),
+    )
 
 
 def connection_details(conn) -> rx.Component:
@@ -42,11 +69,17 @@ def connection_details(conn) -> rx.Component:
             ),
             class_name="flex items-start gap-2 mt-2",
         ),
+        distance_details(conn["distance_display"], conn["distance_label"]),
+        demo_notice(conn["demo_label"]),
         rx.el.p(
-            "Conexão geográfica em linha reta; não representa um percurso de viagem.",
+            "Deslocamento geográfico nascimento–falecimento (grande círculo). Não é rota histórica nem distância percorrida em viagem.",
             class_name="text-[10px] text-gray-500 leading-snug mt-2 border-t border-gray-200 pt-2",
         ),
-        class_name="w-60 max-w-full bg-white text-gray-900 font-['Inter']",
+        class_name=rx.cond(
+            ResearchState.dark_mode,
+            "w-60 max-w-full bg-gray-950 text-gray-100 font-['Inter'] p-2 rounded-lg",
+            "w-60 max-w-full bg-white text-gray-900 font-['Inter']",
+        ),
     )
 
 
@@ -217,6 +250,7 @@ def map_marker(point) -> rx.Component:
                     ),
                     class_name="flex items-center gap-1.5 mt-3 pt-2 border-t border-gray-100",
                 ),
+                demo_notice(point["demo_label"]),
                 class_name="min-w-[240px]",
             )
         ),
@@ -347,7 +381,28 @@ def selected_location_overlay() -> rx.Component:
                 ),
                 class_name="flex items-center gap-1.5 mt-2 pt-2 border-t border-gray-100",
             ),
-            class_name="absolute bottom-3 right-3 z-[1000] w-72 bg-white/95 backdrop-blur-md rounded-xl border border-gray-200 shadow-lg p-3",
+            rx.cond(
+                ResearchState.selected_route_distance != "",
+                rx.el.div(
+                    distance_details(
+                        ResearchState.selected_route_distance, DISTANCE_LABEL
+                    ),
+                    rx.el.p(
+                        "Deslocamento geográfico, não rota histórica nem distância de viagem.",
+                        class_name="text-[10px] leading-snug mt-1 text-gray-500",
+                    ),
+                ),
+                rx.el.p(
+                    ResearchState.selected_route_message,
+                    class_name="text-[10px] leading-snug mt-2 text-gray-500",
+                ),
+            ),
+            demo_notice(ResearchState.selected_person["demo_label"]),
+            class_name=rx.cond(
+                ResearchState.dark_mode,
+                "absolute bottom-3 right-3 z-[1000] w-72 max-w-[calc(100%-1.5rem)] max-h-[55%] overflow-y-auto bg-gray-950/95 text-gray-100 backdrop-blur-md rounded-xl border border-gray-700 p-3",
+                "absolute bottom-3 right-3 z-[1000] w-72 max-w-[calc(100%-1.5rem)] max-h-[55%] overflow-y-auto bg-white/95 text-gray-900 backdrop-blur-md rounded-xl border border-gray-200 p-3",
+            ),
         ),
         rx.fragment(),
     )
@@ -372,7 +427,7 @@ def map_stats_overlay() -> rx.Component:
         ),
         rx.el.div(
             rx.el.div(
-                rx.icon("users", class_name="h-3.5 w-3.5 text-emerald-600"),
+                rx.icon("calendar", class_name="h-3 w-3 text-gray-400"),
                 rx.el.span(
                     "Pessoas",
                     class_name="text-[10px] font-semibold uppercase tracking-wider text-gray-500",
@@ -456,6 +511,15 @@ def route_legend_item(conn) -> rx.Component:
             rx.el.p(
                 conn["id"], class_name="text-[9px] font-mono text-gray-500"
             ),
+            rx.el.p(
+                conn["distance_display"],
+                class_name="text-[11px] font-semibold tabular-nums",
+            ),
+            rx.el.p(
+                conn["distance_label"],
+                class_name="text-[9px] leading-snug text-gray-500",
+            ),
+            demo_notice(conn["demo_label"]),
             class_name="min-w-0 flex-1",
         ),
         rx.cond(
@@ -527,7 +591,7 @@ def map_legend_floating() -> rx.Component:
                     aria_label="Identificação das conexões biográficas",
                 ),
                 rx.el.p(
-                    "Linhas retas, não percursos de viagem. Clique na linha para detalhes.",
+                    "Nascimento → falecimento: deslocamento geográfico, não rota histórica nem distância de viagem. Clique na linha para detalhes.",
                     class_name=rx.cond(
                         ResearchState.dark_mode,
                         "text-[10px] text-gray-400 leading-snug mt-1",
@@ -540,7 +604,10 @@ def map_legend_floating() -> rx.Component:
                     "mt-1.5 pt-1.5 border-t border-gray-200",
                 ),
             ),
-            rx.fragment(),
+            rx.el.p(
+                "Sem conexão completa. Pontos isolados não permitem calcular distância.",
+                class_name="text-[10px] leading-snug mt-2 text-gray-500",
+            ),
         ),
         class_name=rx.cond(
             ResearchState.dark_mode,
@@ -552,14 +619,11 @@ def map_legend_floating() -> rx.Component:
 
 def selectable_person_chip(person) -> rx.Component:
     map_api = rxe.map.api("geo-map")
-    has_birth = (person["birth_lat"] != 0.0) | (person["birth_lng"] != 0.0)
-    has_death = (person["death_lat"] != 0.0) | (person["death_lng"] != 0.0)
+    has_birth = person["has_birth_coordinate"]
+    has_death = person["has_death_coordinate"]
     has_both = has_birth & has_death
     # Detect same/near-same place (raw coords overlap within a small epsilon).
-    # When that happens, the visible markers are offset by ~0.0065deg in
-    # map_points/map_connections, so we must zoom in to city-level so both
-    # offset pins are clearly visible. Use the offset-adjusted midpoint that
-    # matches the rendered geometry to keep the framing consistent.
+    # Only pins are offset; city-level focus reveals both without changing distance.
     same_place = (abs(person["birth_lat"] - person["death_lat"]) < 0.001) & (
         abs(person["birth_lng"] - person["death_lng"]) < 0.001
     )
@@ -617,6 +681,15 @@ def selectable_person_chip(person) -> rx.Component:
         rx.el.span(
             person["name"],
             class_name="text-xs font-medium truncate max-w-[140px]",
+        ),
+        rx.cond(
+            person["demo_label"] != "",
+            rx.el.span(
+                "Demo",
+                title=person["demo_label"],
+                class_name="text-[9px] font-semibold",
+            ),
+            rx.fragment(),
         ),
         rx.cond(
             person["is_homonym"] & (person["context_label"] != ""),
@@ -845,7 +918,11 @@ def map_view() -> rx.Component:
                     ),
                 ),
                 rx.el.p(
-                    "Pesquise pessoas com locais de nascimento ou falecimento para visualizar no mapa imersivo.",
+                    rx.cond(
+                        ResearchState.has_selected_person,
+                        ResearchState.selected_route_message,
+                        "Pesquise pessoas com locais de nascimento ou falecimento para visualizar no mapa imersivo.",
+                    ),
                     class_name=rx.cond(
                         ResearchState.dark_mode,
                         "text-sm text-gray-400 text-center mt-1 max-w-md mx-auto",
